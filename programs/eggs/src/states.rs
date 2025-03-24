@@ -5,7 +5,8 @@ pub const FEE_BASE_1000: u16 = 1000;
 pub const MIN: u64 = 1000;
 pub const FEES_BUY: u16 = 125;
 pub const FEES_SELL: u16 = 125;
-pub const SONIC_DECIMALS: u8 = 9;  // Solana's native token (SOL) has 9 decimals
+// SOL's smallest unit is the lamport. 1 SOL = 10^9 lamports (confirmed by LAMPORTS_PER_SOL constant)
+pub const SOL_DECIMALS: u8 = 9;  // Solana's native SOL token has 9 decimals (1 SOL = 10^9 lamports)
 pub const EGGS_DECIMALS: u8 = 9;
 pub const MAX_SUPPLY: u128 = 10_000_000_000_000_000_000_000_000_000;  // 10e28 in Solidity
 

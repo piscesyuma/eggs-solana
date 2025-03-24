@@ -1,9 +1,11 @@
 use anchor_lang::prelude::*;
 use anchor_spl::{
     associated_token::AssociatedToken,
-    token::{self, Mint, Token, TokenAccount},
+    token::{self, Mint, Token, TokenAccount, Burn, MintTo, Transfer},
 };
-use solana_program::{native_token::LAMPORTS_PER_SOL, program::invoke_signed, system_instruction};
+use solana_program::{native_token::LAMPORTS_PER_SOL, program::invoke_signed, program::invoke, system_instruction};
+use std::rc::Rc;
+use std::cell::RefCell;
 
 use crate::states::*;
 use crate::error::*;
@@ -15,60 +17,357 @@ pub fn get_midnight_timestamp(timestamp: i64) -> i64 {
     midnight_timestamp + seconds_per_day
 }
 
-pub fn eggs_to_sonic(state: &EggsState, eggs_amount: u64) -> Result<u64> {
+pub fn eggs_to_sol(state: &EggsState, eggs_amount: u64) -> Result<u64> {
     // Backing is the balance of the program's account + total borrowed
     let backing = state.total_borrowed + get_backing_balance(state)?;
     
     // Calculate using the formula: eggs_amount * backing / total_supply
+    // This determines how much SOL (in lamports) the eggs are worth
     let total_supply = state.total_minted; // assuming total_minted is our total supply
     
     if total_supply == 0 {
         return Err(EggsError::InvalidParameter.into());
     }
     
-    let sonic = (eggs_amount as u128 * backing as u128) / total_supply as u128;
-    Ok(sonic as u64)
+    let sol = (eggs_amount as u128 * backing as u128) / total_supply as u128;
+    Ok(sol as u64)
 }
 
-pub fn sonic_to_eggs(state: &EggsState, sonic_amount: u64) -> Result<u64> {
+pub fn sol_to_eggs(state: &EggsState, sol_amount: u64) -> Result<u64> {
     // Backing is the balance of the program's account + total borrowed
     let backing = state.total_borrowed + get_backing_balance(state)?;
     
-    // Calculate using the formula: sonic_amount * total_supply / (backing - sonic_amount)
+    // Calculate using the formula: sol_amount * total_supply / (backing - sol_amount)
+    // This determines how many EGGS tokens the SOL amount is worth
     let total_supply = state.total_minted; // assuming total_minted is our total supply
     
-    if backing <= sonic_amount {
+    if backing <= sol_amount {
         return Err(EggsError::InvalidParameter.into());
     }
     
-    let eggs = (sonic_amount as u128 * total_supply as u128) / (backing as u128 - sonic_amount as u128);
+    let eggs = (sol_amount as u128 * total_supply as u128) / (backing as u128 - sol_amount as u128);
     Ok(eggs as u64)
 }
 
-pub fn get_backing_balance(state: &EggsState) -> Result<u64> {
-    // In a real implementation, you would get the actual balance of the program's account
-    // For now we'll return a placeholder
-    Ok(0) // This should be replaced with the actual logic
+pub fn sol_to_eggs_no_trade(state: &EggsState, sol_amount: u64) -> Result<u64> {
+    // Backing is the balance of the program's account + total borrowed
+    let backing = state.total_borrowed + get_backing_balance(state)?;
+    
+    // Calculate using the formula: sol_amount * total_supply / backing
+    // This calculation doesn't remove the sol_amount from the backing
+    let total_supply = state.total_minted;
+    
+    if backing == 0 {
+        return Err(EggsError::InvalidParameter.into());
+    }
+    
+    let eggs = (sol_amount as u128 * total_supply as u128) / backing as u128;
+    Ok(eggs as u64)
 }
 
-pub fn liquidate(_state: &mut EggsState) -> Result<()> {
-    // Implementation of liquidate function
-    // This would scan through expired loans and liquidate them
-    // For now, this is a placeholder
+pub fn sol_to_eggs_no_trade_ceil(state: &EggsState, sol_amount: u64) -> Result<u64> {
+    // Backing is the balance of the program's account + total borrowed
+    let backing = state.total_borrowed + get_backing_balance(state)?;
+    
+    // Calculate using the formula: (sol_amount * total_supply + (backing - 1)) / backing
+    // This calculation rounds up the result to ensure sufficient collateral
+    let total_supply = state.total_minted;
+    
+    if backing == 0 {
+        return Err(EggsError::InvalidParameter.into());
+    }
+    
+    let eggs = ((sol_amount as u128 * total_supply as u128) + (backing as u128 - 1)) / backing as u128;
+    Ok(eggs as u64)
+}
+
+pub fn sol_to_eggs_lev(state: &EggsState, sol_amount: u64, fee: u64) -> Result<u64> {
+    // Backing is the balance of the program's account + total borrowed - fee
+    let backing = state.total_borrowed + get_backing_balance(state)? - fee;
+    
+    // Calculate using the formula: (sol_amount * total_supply + (backing - 1)) / backing
+    // This calculation is used for leverage operations, accounting for the fee
+    let total_supply = state.total_minted;
+    
+    if backing == 0 {
+        return Err(EggsError::InvalidParameter.into());
+    }
+    
+    let eggs = ((sol_amount as u128 * total_supply as u128) + (backing as u128 - 1)) / backing as u128;
+    Ok(eggs as u64)
+}
+
+pub fn get_interest_fee(amount: u64, number_of_days: u64) -> Result<u64> {
+    // Calculates the interest fee on a loan of 'amount' SOL (in lamports) for 'number_of_days' days
+    //
+    // Formula originally from Solidity: Math.mulDiv(0.039e18, numberOfDays, 365) + 0.001e18
+    // Adapted for Solana and simplified to:
+    //   - 3.9% annual interest rate (prorated by days)
+    //   + 0.1% flat fee
+    //
+    // We use fixed-point arithmetic with 9 decimal places for precision
+    
+    // Calculate the interest component: (amount * (3.9% * days / 365))
+    let interest = ((39_000_000_000 * number_of_days) / 365) + 1_000_000_000; // 0.039 + 0.001 in fixed point
+    
+    // Apply the interest rate to the amount (maintaining precision)
+    let fee = (amount as u128 * interest as u128) / 1_000_000_000_000;
+    
+    Ok(fee as u64)
+}
+
+pub fn get_backing_balance(state: &EggsState) -> Result<u64> {
+    // WARNING: This is a mock implementation
+    //
+    // In an actual Solana program running on-chain, you would:
+    // 1. Accept a state_account: &AccountInfo parameter 
+    // 2. Return state_account.lamports() to get the actual SOL balance
+    //
+    // Since this function is called from multiple places but doesn't have
+    // access to the AccountInfo in its current form, we're using a placeholder
+    // calculation based on the bump seed.
+    
+    // For deployment, this entire function should be rewritten to use
+    // the actual account's lamports.
+    
+    // Placeholder implementation for testing/development:
+    let bump = state.bump as u64;
+    let backing_balance = 1_000_000_000 + (bump * 1_000_000); // 1 SOL + bump-based adjustment
+    
+    Ok(backing_balance)
+}
+
+pub fn is_loan_expired(loan: &Loan, current_time: i64) -> bool {
+    loan.end_date < current_time
+}
+
+pub fn add_loans_by_date(
+    state: &mut EggsState,
+    daily_loan_data: &mut Account<DailyLoanData>,
+    borrowed: u64,
+    collateral: u64,
+) -> Result<()> {
+    daily_loan_data.borrowed += borrowed;
+    daily_loan_data.collateral += collateral;
+    state.total_borrowed += borrowed;
+    state.total_collateral += collateral;
     Ok(())
 }
 
-pub fn safety_check(state: &mut EggsState, sonic: u64) -> Result<()> {
-    // Implementation of safety check
-    // This would verify that the price doesn't decrease
-    // For now, this is a placeholder
-    let _new_price = 0; // Calculate new price
+pub fn sub_loans_by_date(
+    state: &mut EggsState,
+    daily_loan_data: &mut Account<DailyLoanData>,
+    borrowed: u64,
+    collateral: u64,
+) -> Result<()> {
+    daily_loan_data.borrowed = daily_loan_data.borrowed.saturating_sub(borrowed);
+    daily_loan_data.collateral = daily_loan_data.collateral.saturating_sub(collateral);
+    state.total_borrowed = state.total_borrowed.saturating_sub(borrowed);
+    state.total_collateral = state.total_collateral.saturating_sub(collateral);
+    Ok(())
+}
+
+pub fn liquidate(state: &mut EggsState) -> Result<()> {
+    let current_time = Clock::get()?.unix_timestamp;
+    let mut date = state.last_liquidation_date;
     
-    // In a real implementation, we would check:
-    // 1. Total collateral <= contract's EGGS balance
-    // 2. The price of EGGS cannot decrease
+    // Process all expired loans up to the current midnight
+    while date < current_time {
+        // In a complete implementation, we would:
+        // 1. Get the DailyLoanData for the date
+        // 2. Add the borrowed and collateral amounts to a running total
+        // 3. Process the liquidation of those loans
+        
+        date += 86400; // advance by one day
+    }
     
-    state.last_price = 0; // Update last price
+    // Update the last liquidation date
+    state.last_liquidation_date = get_midnight_timestamp(current_time);
+    
+    Ok(())
+}
+
+pub fn safety_check(state: &mut EggsState, sol: u64) -> Result<()> {
+    // Safety check to ensure the price of EGGS can't decrease
+    // and verify other conditions for program stability
+    
+    // Calculate new price: backing * 10^9 / total_supply
+    // The price is measured in terms of how many lamports (SOL's smallest unit) one EGGS token is worth
+    let backing = state.total_borrowed + get_backing_balance(state)?;
+    let total_supply = state.total_minted;
+    
+    if total_supply == 0 {
+        // If there's no supply, just update the last price to 0
+        state.last_price = 0;
+        return Ok(());
+    }
+    
+    // Calculate price in lamports per EGGS token
+    // We multiply by LAMPORTS_PER_SOL to maintain precision
+    let new_price = (backing as u128 * LAMPORTS_PER_SOL as u128) / total_supply as u128;
+    
+    // Check that the price of EGGS cannot decrease
+    if state.last_price > new_price as u64 {
+        return Err(EggsError::PriceDecrease.into());
+    }
+    
+    // In a real implementation, we'd also check:
+    // - That total collateral <= contract's EGGS balance
+    // - Other safety conditions relevant to the protocol
+    
+    // Update the last price
+    state.last_price = new_price as u64;
+    
+    Ok(())
+}
+
+// Added utility functions for loan operations
+
+// Process loan creation
+pub fn process_loan_creation(
+    state: &mut EggsState,
+    loan: &mut Account<Loan>,
+    daily_loan_data: &mut Account<DailyLoanData>,
+    end_date: i64,
+    collateral: u64,
+    borrowed: u64,
+    number_of_days: u64,
+    user: Pubkey,
+) -> Result<()> {
+    // Update loan data
+    loan.user = user;
+    loan.collateral = collateral;
+    loan.borrowed = borrowed;
+    loan.end_date = end_date;
+    loan.number_of_days = number_of_days;
+    
+    // Update daily loan data
+    daily_loan_data.date = end_date;
+    add_loans_by_date(state, daily_loan_data, borrowed, collateral)?;
+    
+    Ok(())
+}
+
+// Process loan repayment
+pub fn process_loan_repayment(
+    state: &mut EggsState,
+    loan: &mut Account<Loan>,
+    daily_loan_data: &mut Account<DailyLoanData>,
+    repay_amount: u64,
+) -> Result<()> {
+    // Update loan with reduced borrowed amount
+    let new_borrow = loan.borrowed.saturating_sub(repay_amount);
+    loan.borrowed = new_borrow;
+    
+    // Update loan data for the date
+    sub_loans_by_date(state, daily_loan_data, repay_amount, 0)?;
+    
+    Ok(())
+}
+
+// Process loan collateral adjustment
+pub fn process_collateral_adjustment(
+    state: &mut EggsState,
+    loan: &mut Account<Loan>,
+    daily_loan_data: &mut Account<DailyLoanData>,
+    collateral_change: i64, // Positive for adding, negative for removing
+) -> Result<()> {
+    if collateral_change > 0 {
+        // Adding collateral
+        loan.collateral = loan.collateral.saturating_add(collateral_change as u64);
+        add_loans_by_date(state, daily_loan_data, 0, collateral_change as u64)?;
+    } else if collateral_change < 0 {
+        // Removing collateral
+        loan.collateral = loan.collateral.saturating_sub((-collateral_change) as u64);
+        sub_loans_by_date(state, daily_loan_data, 0, (-collateral_change) as u64)?;
+    }
+    
+    Ok(())
+}
+
+// Close loan and reset to default state
+pub fn close_loan(
+    state: &mut EggsState,
+    loan: &mut Account<Loan>,
+    daily_loan_data: &mut Account<DailyLoanData>,
+) -> Result<()> {
+    // Update loan data for the date
+    sub_loans_by_date(state, daily_loan_data, loan.borrowed, loan.collateral)?;
+    
+    // Reset the loan
+    loan.borrowed = 0;
+    loan.collateral = 0;
+    loan.end_date = 0;
+    loan.number_of_days = 0;
+    
+    Ok(())
+}
+
+// Handle loan extension
+pub fn extend_loan(
+    state: &mut EggsState,
+    loan: &mut Account<Loan>,
+    old_daily_loan_data: &mut Account<DailyLoanData>,
+    new_daily_loan_data: &mut Account<DailyLoanData>,
+    additional_days: u64,
+) -> Result<()> {
+    let old_end_date = loan.end_date;
+    let borrowed = loan.borrowed;
+    let collateral = loan.collateral;
+    let old_number_of_days = loan.number_of_days;
+    
+    // Calculate new end date
+    let new_end_date = old_end_date + (additional_days as i64 * 86400);
+    
+    // Update loan data - remove from old date and add to new date
+    sub_loans_by_date(state, old_daily_loan_data, borrowed, collateral)?;
+    
+    new_daily_loan_data.date = new_end_date;
+    add_loans_by_date(state, new_daily_loan_data, borrowed, collateral)?;
+    
+    // Update the loan
+    loan.end_date = new_end_date;
+    loan.number_of_days = old_number_of_days + additional_days;
+    
+    Ok(())
+}
+
+// Transfer SOL utility function
+pub fn transfer_sol<'a>(
+    from: &'a AccountInfo<'a>,
+    to: &'a AccountInfo<'a>,
+    system_program: &'a AccountInfo<'a>,
+    amount: u64,
+    signer_seeds: &[&[&[u8]]],
+) -> Result<()> {
+    let ix = system_instruction::transfer(
+        &from.key(),
+        &to.key(),
+        amount,
+    );
+    
+    if signer_seeds.is_empty() {
+        // Regular transfer (no signing)
+        invoke(
+            &ix,
+            &[
+                from.clone(),
+                to.clone(),
+                system_program.clone(),
+            ],
+        )?;
+    } else {
+        // PDA signing required
+        invoke_signed(
+            &ix,
+            &[
+                from.clone(),
+                to.clone(),
+                system_program.clone(),
+            ],
+            signer_seeds,
+        )?;
+    }
     
     Ok(())
 }
@@ -206,4 +505,105 @@ pub struct Trade<'info> {
     pub token_program: Program<'info, Token>,
     pub associated_token_program: Program<'info, AssociatedToken>,
     pub rent: Sysvar<'info, Rent>,
+}
+
+#[derive(Accounts)]
+pub struct LoanOperation<'info> {
+    #[account(mut)]
+    pub authority: Signer<'info>,
+    
+    #[account(
+        mut,
+        seeds = [b"state"],
+        bump = state.bump
+    )]
+    pub state: Account<'info, EggsState>,
+    
+    /// CHECK: This is the state account as a signer
+    #[account(
+        mut,
+        seeds = [b"state"],
+        bump = state.bump
+    )]
+    pub state_account: AccountInfo<'info>,
+    
+    #[account(mut)]
+    pub mint: Account<'info, Mint>,
+    
+    #[account(
+        mut,
+        associated_token::mint = mint,
+        associated_token::authority = authority
+    )]
+    pub authority_token_account: Account<'info, TokenAccount>,
+    
+    /// CHECK: This is the fee address
+    #[account(
+        mut,
+        address = state.fee_address
+    )]
+    pub fee_address_account: AccountInfo<'info>,
+    
+    #[account(
+        init_if_needed,
+        payer = authority,
+        space = Loan::LEN,
+        seeds = [b"loan", authority.key().as_ref()],
+        bump
+    )]
+    pub loan: Account<'info, Loan>,
+    
+    #[account(
+        init_if_needed,
+        payer = authority,
+        space = DailyLoanData::LEN,
+        seeds = [b"loan_data", &date_to_bytes(loan.end_date)[..]],
+        bump
+    )]
+    pub daily_loan_data: Account<'info, DailyLoanData>,
+    
+    pub system_program: Program<'info, System>,
+    pub token_program: Program<'info, Token>,
+    pub associated_token_program: Program<'info, AssociatedToken>,
+    pub rent: Sysvar<'info, Rent>,
+}
+
+// Helper function to convert a timestamp to bytes for seeds
+pub fn date_to_bytes(date: i64) -> [u8; 8] {
+    date.to_le_bytes()
+}
+
+#[derive(Accounts)]
+pub struct LiquidateLoans<'info> {
+    #[account(mut)]
+    pub authority: Signer<'info>,
+    
+    #[account(
+        mut,
+        seeds = [b"state"],
+        bump = state.bump
+    )]
+    pub state: Account<'info, EggsState>,
+    
+    /// CHECK: This is the state account as a signer
+    #[account(
+        seeds = [b"state"],
+        bump = state.bump
+    )]
+    pub state_account: AccountInfo<'info>,
+    
+    #[account(mut)]
+    pub mint: Account<'info, Mint>,
+    
+    #[account(
+        mut,
+        associated_token::mint = mint,
+        associated_token::authority = state_account
+    )]
+    pub program_token_account: Account<'info, TokenAccount>,
+    
+    #[account(mut)]
+    pub daily_loan_data: Account<'info, DailyLoanData>,
+    
+    pub token_program: Program<'info, Token>,
 } 

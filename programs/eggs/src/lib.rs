@@ -4,6 +4,10 @@ use anchor_spl::{
     token::{self, Mint, Token, TokenAccount, Transfer, Burn, MintTo},
 };
 use solana_program::{native_token::LAMPORTS_PER_SOL, program::invoke, program::invoke_signed, system_instruction};
+use mpl_token_metadata::{
+    instructions::{CreateMetadataAccountV3, CreateMetadataAccountV3InstructionArgs},
+    types::{Creator, DataV2},
+};
 
 pub mod states;
 pub mod error;
@@ -42,55 +46,66 @@ pub mod eggs {
         // - 9 decimals (EGGS_DECIMALS)
         // - Mint authority set to state_account (PDA)
         // - Freeze authority set to None
-        // No need to initialize it again, as it's handled by Anchor's constraints
-        
-        // Note: To add metadata to the token (name, symbol, etc.), you would need to:
-        // 1. Add the Metaplex Token Metadata program as a dependency
-        // 2. Create a CPI call to create_metadata_accounts_v3
-        // 3. Pass in the required parameters (name: "EGGS", symbol: "EGGS", uri: "https://...")
-        //
-        // Example of that code would be:
-        //
-        // let seeds = &[b"state".as_ref(), &[bump]];
-        // let signer = &[&seeds[..]];
-        // 
-        // let data = mpl_token_metadata::pda::DataV2 {
-        //     name: "EGGS".to_string(),
-        //     symbol: "EGGS".to_string(),
-        //     uri: "https://...".to_string(),
-        //     seller_fee_basis_points: 0,
-        //     creators: None,
-        //     collection: None,
-        //     uses: None,
-        // };
-        //
-        // invoke_signed(
-        //     &mpl_token_metadata::instruction::create_metadata_accounts_v3(
-        //         metadata_program_id,
-        //         metadata_pda,
-        //         mint_address,
-        //         mint_authority,
-        //         payer,
-        //         update_authority,
-        //         data.name,
-        //         data.symbol,
-        //         data.uri,
-        //         data.creators,
-        //         data.seller_fee_basis_points,
-        //         true,
-        //         true,
-        //         data.collection,
-        //         data.uses,
-        //         None,
-        //     ),
-        //     &accounts_vec,
-        //     signer,
-        // )?;
         
         msg!("EGGS token initialized with:");
         msg!("- Decimals: {}", EGGS_DECIMALS);
         msg!("- Mint authority: {}", ctx.accounts.state_account.key());
         msg!("- Mint address: {}", ctx.accounts.mint.key());
+        
+        // Create metadata for the token
+        // Define token metadata
+        let token_name = "Eggs";
+        let token_symbol = "EGGS";
+        let token_uri = "https://example.com/eggs-metadata"; // Explicit placeholder URI
+        
+        // Define creator information - use a more compact approach
+        let creator = mpl_token_metadata::types::Creator {
+            address: ctx.accounts.authority.key(),
+            verified: false,
+            share: 100,
+        };
+        
+        // Create metadata instruction more efficiently
+        let ix = mpl_token_metadata::instructions::CreateMetadataAccountV3 {
+            metadata: ctx.accounts.metadata_account.key(),
+            mint: ctx.accounts.mint.key(),
+            mint_authority: ctx.accounts.state_account.key(),
+            payer: ctx.accounts.authority.key(),
+            update_authority: ctx.accounts.state_account.key(),
+            system_program: ctx.accounts.system_program.key(),
+            rent: Some(ctx.accounts.rent.key()),
+        }.instruction(mpl_token_metadata::instructions::CreateMetadataAccountV3InstructionArgs {
+            data: mpl_token_metadata::types::DataV2 {
+                name: token_name.to_string(),
+                symbol: token_symbol.to_string(), 
+                uri: token_uri.to_string(),
+                seller_fee_basis_points: 0,
+                creators: Some(vec![creator]),
+                collection: None,
+                uses: None,
+            },
+            is_mutable: true,
+            collection_details: None,
+        });
+        
+        // Execute the instruction
+        invoke_signed(
+            &ix,
+            &[
+                ctx.accounts.metadata_account.to_account_info(),
+                ctx.accounts.mint.to_account_info(),
+                ctx.accounts.state_account.to_account_info(),
+                ctx.accounts.authority.to_account_info(),
+                ctx.accounts.system_program.to_account_info(),
+                ctx.accounts.rent.to_account_info(),
+            ],
+            &[&[b"state".as_ref(), &[state.bump]]],
+        )?;
+        
+        msg!("EGGS token metadata created successfully");
+        msg!("- Name: {}", token_name);
+        msg!("- Symbol: {}", token_symbol);
+        msg!("- URI: {}", token_uri);
         
         Ok(())
     }

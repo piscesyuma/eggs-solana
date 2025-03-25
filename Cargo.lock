@@ -878,6 +878,7 @@ version = "0.1.0"
 dependencies = [
  "anchor-lang",
  "anchor-spl",
+ "mpl-token-metadata",
  "solana-program",
 ]
 
@@ -1230,6 +1231,17 @@ dependencies = [
  "keccak",
  "rand_core 0.6.4",
  "zeroize",
+]
+
+[[package]]
+name = "mpl-token-metadata"
+version = "2.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e6ce4ae029eeb2a93db200ba05e327adea1631027bb672ade015887fece72f8b"
+dependencies = [
+ "borsh 0.10.4",
+ "solana-program",
+ "spl-program-error",
 ]
 
 [[package]]

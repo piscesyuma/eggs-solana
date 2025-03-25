@@ -399,6 +399,13 @@ pub struct Initialize<'info> {
     )]
     pub authority_token_account: Account<'info, TokenAccount>,
     
+    /// CHECK: This is the Metaplex Token Metadata Program
+    pub metadata_program: UncheckedAccount<'info>,
+    
+    /// CHECK: Metadata account for the mint
+    #[account(mut)]
+    pub metadata_account: UncheckedAccount<'info>,
+
     pub system_program: Program<'info, System>,
     pub token_program: Program<'info, Token>,
     pub associated_token_program: Program<'info, AssociatedToken>,

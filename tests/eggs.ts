@@ -16,6 +16,9 @@ describe("eggs", () => {
   let stateAccount: PublicKey;
   let mint: PublicKey;
   let bump: number;
+  
+  // Token Metadata Program ID from Metaplex
+  const TOKEN_METADATA_PROGRAM_ID = new PublicKey("metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s");
 
   it("Is initialized", async () => {
     // Find the PDA for the program state
@@ -29,6 +32,22 @@ describe("eggs", () => {
     // Create a new keypair for the mint
     const mintKeypair = anchor.web3.Keypair.generate();
     mint = mintKeypair.publicKey;
+    
+    // Derive the metadata account PDA
+    const [metadataAccount] = await PublicKey.findProgramAddressSync(
+      [
+        Buffer.from("metadata"),
+        TOKEN_METADATA_PROGRAM_ID.toBuffer(),
+        mint.toBuffer(),
+      ],
+      TOKEN_METADATA_PROGRAM_ID
+    );
+
+    // Get authority token account
+    const authorityTokenAccount = await anchor.utils.token.associatedAddress({
+      mint: mint,
+      owner: wallet.publicKey,
+    });
 
     // Initialize the program
     const tx = await program.methods
@@ -38,8 +57,12 @@ describe("eggs", () => {
         state: statePda,
         stateAccount: statePda,
         mint: mint,
+        authorityTokenAccount: authorityTokenAccount,
+        metadataProgram: TOKEN_METADATA_PROGRAM_ID,
+        metadataAccount: metadataAccount,
         systemProgram: anchor.web3.SystemProgram.programId,
         tokenProgram: anchor.utils.token.TOKEN_PROGRAM_ID,
+        associatedTokenProgram: anchor.utils.token.ASSOCIATED_PROGRAM_ID,
         rent: anchor.web3.SYSVAR_RENT_PUBKEY,
       })
       .signers([mintKeypair])

@@ -31,6 +31,67 @@ pub mod eggs {
         state.start = false;
         state.last_liquidation_date = get_midnight_timestamp(Clock::get()?.unix_timestamp);
         
+        // Initialize the state with zero values for tracking
+        state.total_borrowed = 0;
+        state.total_collateral = 0;
+        state.total_minted = 0;
+        state.last_price = 0;
+        state.fee_address = Pubkey::default(); // Will be set later with set_fee_address
+        
+        // The mint is already initialized in the Initialize struct with:
+        // - 9 decimals (EGGS_DECIMALS)
+        // - Mint authority set to state_account (PDA)
+        // - Freeze authority set to None
+        // No need to initialize it again, as it's handled by Anchor's constraints
+        
+        // Note: To add metadata to the token (name, symbol, etc.), you would need to:
+        // 1. Add the Metaplex Token Metadata program as a dependency
+        // 2. Create a CPI call to create_metadata_accounts_v3
+        // 3. Pass in the required parameters (name: "EGGS", symbol: "EGGS", uri: "https://...")
+        //
+        // Example of that code would be:
+        //
+        // let seeds = &[b"state".as_ref(), &[bump]];
+        // let signer = &[&seeds[..]];
+        // 
+        // let data = mpl_token_metadata::pda::DataV2 {
+        //     name: "EGGS".to_string(),
+        //     symbol: "EGGS".to_string(),
+        //     uri: "https://...".to_string(),
+        //     seller_fee_basis_points: 0,
+        //     creators: None,
+        //     collection: None,
+        //     uses: None,
+        // };
+        //
+        // invoke_signed(
+        //     &mpl_token_metadata::instruction::create_metadata_accounts_v3(
+        //         metadata_program_id,
+        //         metadata_pda,
+        //         mint_address,
+        //         mint_authority,
+        //         payer,
+        //         update_authority,
+        //         data.name,
+        //         data.symbol,
+        //         data.uri,
+        //         data.creators,
+        //         data.seller_fee_basis_points,
+        //         true,
+        //         true,
+        //         data.collection,
+        //         data.uses,
+        //         None,
+        //     ),
+        //     &accounts_vec,
+        //     signer,
+        // )?;
+        
+        msg!("EGGS token initialized with:");
+        msg!("- Decimals: {}", EGGS_DECIMALS);
+        msg!("- Mint authority: {}", ctx.accounts.state_account.key());
+        msg!("- Mint address: {}", ctx.accounts.mint.key());
+        
         Ok(())
     }
 
@@ -69,6 +130,9 @@ pub mod eggs {
         
         // Calculate team mint amount
         let team_mint_amount = amount_lamports * MIN;
+        
+        // Ensure we don't exceed MAX_SUPPLY
+        require!(team_mint_amount <= MAX_SUPPLY as u64, EggsError::MaxSupplyExceeded);
         
         // Mint to the authority (team)
         token::mint_to(
@@ -155,8 +219,28 @@ pub mod eggs {
         )?;
         
         // Calculate EGGS to mint
-        let eggs = sol_to_eggs(state, amount_lamports)?;
-        let eggs_with_fee = (eggs * state.buy_fee as u64) / FEE_BASE_1000 as u64;
+        // Update to use the real implementation for token conversion
+        let sol_amount = amount_lamports;
+        let state_account = &ctx.accounts.state_account;
+        
+        // Get the backing (SOL balance + borrowed)
+        let backing = state.total_borrowed + state_account.lamports() - sol_amount;
+        let total_supply = state.total_minted;
+        
+        // Calculate eggs: sol_amount * total_supply / (backing)
+        let eggs = if backing == 0 || total_supply == 0 {
+            return Err(EggsError::InvalidParameter.into());
+        } else {
+            (sol_amount as u128 * total_supply as u128) / backing as u128
+        };
+        
+        let eggs_with_fee = (eggs as u64 * state.buy_fee as u64) / FEE_BASE_1000 as u64;
+        
+        // Ensure we don't exceed MAX_SUPPLY
+        require!(
+            state.total_minted as u128 + eggs_with_fee as u128 <= MAX_SUPPLY,
+            EggsError::MaxSupplyExceeded
+        );
         
         // Mint EGGS to the receiver
         token::mint_to(
@@ -201,7 +285,8 @@ pub mod eggs {
             ]],
         )?;
         
-        safety_check(&mut ctx.accounts.state, amount_lamports)?;
+        // Use the real safety check with account info
+        safety_check_with_account(state, &ctx.accounts.state_account, amount_lamports)?;
         
         Ok(())
     }
@@ -211,8 +296,19 @@ pub mod eggs {
         let state = &mut ctx.accounts.state;
         liquidate(state)?;
         
-        // Calculate SOL to be sent
-        let sol = eggs_to_sol(state, eggs_amount)?;
+        // Calculate SOL to be sent using real account info
+        let state_account = &ctx.accounts.state_account;
+        
+        // Get the backing (SOL balance + borrowed)
+        let backing = state.total_borrowed + state_account.lamports();
+        let total_supply = state.total_minted;
+        
+        // Calculate sol: eggs_amount * backing / total_supply
+        let sol = if total_supply == 0 {
+            return Err(EggsError::InvalidParameter.into());
+        } else {
+            (eggs_amount as u128 * backing as u128) / total_supply as u128
+        };
         
         // Burn EGGS from the seller
         token::burn(
@@ -228,11 +324,11 @@ pub mod eggs {
         )?;
         
         // Team fee
-        let fee_address_amount = sol / FEES_SELL as u64;
+        let fee_address_amount = sol as u64 / FEES_SELL as u64;
         require!(fee_address_amount > MIN, EggsError::BelowMinimumValue);
         
         // Transfer SOL to the seller
-        let seller_amount = (sol * state.sell_fee as u64) / FEE_BASE_1000 as u64;
+        let seller_amount = (sol as u64 * state.sell_fee as u64) / FEE_BASE_1000 as u64;
         let ix_seller = system_instruction::transfer(
             &ctx.accounts.state_account.key(),
             &ctx.accounts.authority.key(),
@@ -270,7 +366,8 @@ pub mod eggs {
             ]],
         )?;
         
-        safety_check(&mut ctx.accounts.state, sol)?;
+        // Use the real safety check with account info
+        safety_check_with_account(state, &ctx.accounts.state_account, sol as u64)?;
         
         Ok(())
     }
@@ -333,8 +430,15 @@ pub mod eggs {
         // Calculate sub value for collateral calculation
         let sub_value = fee_address_amount + over_collateralization_amount;
         
-        // Calculate user eggs (collateral)
-        let user_eggs = sol_to_eggs_lev(&ctx.accounts.state, user_sol, sub_value)?;
+        // Calculate user eggs (collateral) using real account info
+        let state_account = &ctx.accounts.state_account;
+        let user_eggs = sol_to_eggs_lev_with_account(&ctx.accounts.state, state_account, user_sol, sub_value)?;
+        
+        // Ensure we don't exceed MAX_SUPPLY
+        require!(
+            ctx.accounts.state.total_minted as u128 + user_eggs as u128 <= MAX_SUPPLY,
+            EggsError::MaxSupplyExceeded
+        );
         
         // Mint eggs to the contract as collateral
         token::mint_to(
@@ -408,7 +512,7 @@ pub mod eggs {
         ctx.accounts.loan.end_date = end_date;
         ctx.accounts.loan.number_of_days = number_of_days;
         
-        safety_check(&mut ctx.accounts.state, sol)?;
+        safety_check_with_account(&mut ctx.accounts.state, &ctx.accounts.state_account, sol)?;
         
         Ok(())
     }
@@ -441,8 +545,9 @@ pub mod eggs {
         let sol_fee = get_interest_fee(sol, number_of_days)?;
         let fee_address_amount = (sol_fee * 3) / 10;
         
-        // Calculate user eggs required (collateral)
-        let user_eggs = sol_to_eggs_no_trade_ceil(&ctx.accounts.state, sol)?;
+        // Calculate user eggs required (collateral) using real account info
+        let state_account = &ctx.accounts.state_account;
+        let user_eggs = sol_to_eggs_no_trade_ceil_with_account(&ctx.accounts.state, state_account, sol)?;
         
         // Calculate new user borrow amount
         let new_user_borrow = (sol * 99) / 100;
@@ -453,13 +558,13 @@ pub mod eggs {
             EggsError::InsufficientCollateral
         );
         
-        // Transfer collateral from user to program
+        // Transfer collateral from user to program escrow
         token::transfer(
             CpiContext::new(
                 ctx.accounts.token_program.to_account_info(),
                 Transfer {
                     from: ctx.accounts.authority_token_account.to_account_info(),
-                    to: ctx.accounts.authority_token_account.to_account_info(), // This would be a program-owned escrow in production
+                    to: ctx.accounts.escrow_token_account.to_account_info(),
                     authority: ctx.accounts.authority.to_account_info(),
                 },
             ),
@@ -523,7 +628,7 @@ pub mod eggs {
             ]],
         )?;
         
-        safety_check(&mut ctx.accounts.state, sol_fee)?;
+        safety_check_with_account(&mut ctx.accounts.state, &ctx.accounts.state_account, sol_fee)?;
         
         Ok(())
     }
@@ -551,11 +656,14 @@ pub mod eggs {
         // Calculate fees
         let sol_fee = get_interest_fee(sol, new_borrow_length as u64)?;
         
+        // Get the state account for real calculations
+        let state_account = &ctx.accounts.state_account;
+        
         // Calculate required eggs for new loan
-        let user_eggs = sol_to_eggs_no_trade_ceil(&ctx.accounts.state, sol)?;
+        let user_eggs = sol_to_eggs_no_trade_ceil_with_account(&ctx.accounts.state, state_account, sol)?;
         
         // Calculate current borrowed amount in eggs
-        let user_borrowed_in_eggs = sol_to_eggs_no_trade(&ctx.accounts.state, user_borrowed)?;
+        let user_borrowed_in_eggs = sol_to_eggs_no_trade_with_account(&ctx.accounts.state, state_account, user_borrowed)?;
         
         // Calculate excess collateral in eggs
         let user_excess_in_eggs = ((user_collateral * 99) / 100).saturating_sub(user_borrowed_in_eggs);
@@ -582,13 +690,13 @@ pub mod eggs {
                 EggsError::InsufficientCollateral
             );
             
-            // Transfer additional collateral from user to program
+            // Transfer additional collateral from user to program escrow
             token::transfer(
                 CpiContext::new(
                     ctx.accounts.token_program.to_account_info(),
                     Transfer {
                         from: ctx.accounts.authority_token_account.to_account_info(),
-                        to: ctx.accounts.authority_token_account.to_account_info(), // This would be a program-owned escrow in production
+                        to: ctx.accounts.escrow_token_account.to_account_info(),
                         authority: ctx.accounts.authority.to_account_info(),
                     },
                 ),
@@ -647,7 +755,7 @@ pub mod eggs {
             ]],
         )?;
         
-        safety_check(&mut ctx.accounts.state, sol_fee)?;
+        safety_check_with_account(&mut ctx.accounts.state, &ctx.accounts.state_account, sol_fee)?;
         
         Ok(())
     }
@@ -664,7 +772,8 @@ pub mod eggs {
         let collateral = ctx.accounts.loan.collateral;
         
         // Check that removing collateral doesn't go below 99% collateralization
-        let sol_value = eggs_to_sol(&ctx.accounts.state, collateral - amount)?;
+        let state_account = &ctx.accounts.state_account;
+        let sol_value = eggs_to_sol_with_account(&ctx.accounts.state, state_account, collateral - amount)?;
         require!(
             ctx.accounts.loan.borrowed <= (sol_value * 99) / 100,
             EggsError::InsufficientCollateral
@@ -673,12 +782,12 @@ pub mod eggs {
         // Update loan with reduced collateral
         ctx.accounts.loan.collateral = ctx.accounts.loan.collateral - amount;
         
-        // Transfer collateral back to the user
+        // Transfer collateral back to the user from the escrow
         token::transfer(
             CpiContext::new_with_signer(
                 ctx.accounts.token_program.to_account_info(),
                 Transfer {
-                    from: ctx.accounts.authority_token_account.to_account_info(), // In production, this would be from the program's escrow account
+                    from: ctx.accounts.escrow_token_account.to_account_info(),
                     to: ctx.accounts.authority_token_account.to_account_info(),
                     authority: ctx.accounts.state_account.to_account_info(),
                 },
@@ -698,7 +807,7 @@ pub mod eggs {
             amount
         )?;
         
-        safety_check(&mut ctx.accounts.state, 0)?;
+        safety_check_with_account(&mut ctx.accounts.state, &ctx.accounts.state_account, 0)?;
         
         Ok(())
     }
@@ -743,7 +852,7 @@ pub mod eggs {
             0
         )?;
         
-        safety_check(&mut ctx.accounts.state, 0)?;
+        safety_check_with_account(&mut ctx.accounts.state, &ctx.accounts.state_account, 0)?;
         
         Ok(())
     }
@@ -776,12 +885,12 @@ pub mod eggs {
             ],
         )?;
         
-        // Transfer collateral back to the user
+        // Transfer collateral back to the user from the escrow
         token::transfer(
             CpiContext::new_with_signer(
                 ctx.accounts.token_program.to_account_info(),
                 Transfer {
-                    from: ctx.accounts.authority_token_account.to_account_info(), // In production, this would be from the program's escrow account
+                    from: ctx.accounts.escrow_token_account.to_account_info(),
                     to: ctx.accounts.authority_token_account.to_account_info(),
                     authority: ctx.accounts.state_account.to_account_info(),
                 },
@@ -807,7 +916,7 @@ pub mod eggs {
         ctx.accounts.loan.end_date = 0;
         ctx.accounts.loan.number_of_days = 0;
         
-        safety_check(&mut ctx.accounts.state, 0)?;
+        safety_check_with_account(&mut ctx.accounts.state, &ctx.accounts.state_account, 0)?;
         
         Ok(())
     }
@@ -824,16 +933,13 @@ pub mod eggs {
         let borrowed = ctx.accounts.loan.borrowed;
         let collateral = ctx.accounts.loan.collateral;
         
-        // Convert collateral to SOL
-        let collateral_in_sol = eggs_to_sol(&ctx.accounts.state, collateral)?;
-        
-        // Burn the collateral
+        // Burn the collateral from the escrow account
         token::burn(
             CpiContext::new_with_signer(
                 ctx.accounts.token_program.to_account_info(),
                 Burn {
                     mint: ctx.accounts.mint.to_account_info(),
-                    from: ctx.accounts.authority_token_account.to_account_info(),
+                    from: ctx.accounts.escrow_token_account.to_account_info(),
                     authority: ctx.accounts.state_account.to_account_info(),
                 },
                 &[&[
@@ -844,7 +950,9 @@ pub mod eggs {
             collateral,
         )?;
         
-        // Calculate values after fee
+        // Calculate values after fee using real account info
+        let state_account = &ctx.accounts.state_account;
+        let collateral_in_sol = eggs_to_sol_with_account(&ctx.accounts.state, state_account, collateral)?;
         let collateral_in_sol_after_fee = (collateral_in_sol * 99) / 100;
         let fee = collateral_in_sol / 100;
         
@@ -911,7 +1019,7 @@ pub mod eggs {
         ctx.accounts.loan.end_date = 0;
         ctx.accounts.loan.number_of_days = 0;
         
-        safety_check(&mut ctx.accounts.state, borrowed)?;
+        safety_check_with_account(&mut ctx.accounts.state, &ctx.accounts.state_account, borrowed)?;
         
         Ok(())
     }
@@ -1000,7 +1108,7 @@ pub mod eggs {
             EggsError::LoanTooLong
         );
         
-        safety_check(&mut ctx.accounts.state, loan_fee)?;
+        safety_check_with_account(&mut ctx.accounts.state, &ctx.accounts.state_account, loan_fee)?;
         
         Ok(())
     }
@@ -1027,13 +1135,13 @@ pub mod eggs {
                 let borrowed = ctx.accounts.daily_loan_data.borrowed;
                 
                 if collateral > 0 {
-                    // Burn the collateral tokens
+                    // Burn the collateral tokens from the escrow
                     token::burn(
                         CpiContext::new_with_signer(
                             ctx.accounts.token_program.to_account_info(),
                             Burn {
                                 mint: ctx.accounts.mint.to_account_info(),
-                                from: ctx.accounts.program_token_account.to_account_info(),
+                                from: ctx.accounts.escrow_token_account.to_account_info(),
                                 authority: ctx.accounts.state_account.to_account_info(),
                             },
                             &[&[

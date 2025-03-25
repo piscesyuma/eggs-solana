@@ -17,9 +17,11 @@ pub fn get_midnight_timestamp(timestamp: i64) -> i64 {
     midnight_timestamp + seconds_per_day
 }
 
-pub fn eggs_to_sol(state: &EggsState, eggs_amount: u64) -> Result<u64> {
+// Updated token conversion functions that take account info
+
+pub fn eggs_to_sol_with_account(state: &EggsState, state_account: &AccountInfo, eggs_amount: u64) -> Result<u64> {
     // Backing is the balance of the program's account + total borrowed
-    let backing = state.total_borrowed + get_backing_balance(state)?;
+    let backing = state.total_borrowed + state_account.lamports();
     
     // Calculate using the formula: eggs_amount * backing / total_supply
     // This determines how much SOL (in lamports) the eggs are worth
@@ -33,9 +35,9 @@ pub fn eggs_to_sol(state: &EggsState, eggs_amount: u64) -> Result<u64> {
     Ok(sol as u64)
 }
 
-pub fn sol_to_eggs(state: &EggsState, sol_amount: u64) -> Result<u64> {
+pub fn sol_to_eggs_with_account(state: &EggsState, state_account: &AccountInfo, sol_amount: u64) -> Result<u64> {
     // Backing is the balance of the program's account + total borrowed
-    let backing = state.total_borrowed + get_backing_balance(state)?;
+    let backing = state.total_borrowed + state_account.lamports();
     
     // Calculate using the formula: sol_amount * total_supply / (backing - sol_amount)
     // This determines how many EGGS tokens the SOL amount is worth
@@ -49,9 +51,9 @@ pub fn sol_to_eggs(state: &EggsState, sol_amount: u64) -> Result<u64> {
     Ok(eggs as u64)
 }
 
-pub fn sol_to_eggs_no_trade(state: &EggsState, sol_amount: u64) -> Result<u64> {
+pub fn sol_to_eggs_no_trade_with_account(state: &EggsState, state_account: &AccountInfo, sol_amount: u64) -> Result<u64> {
     // Backing is the balance of the program's account + total borrowed
-    let backing = state.total_borrowed + get_backing_balance(state)?;
+    let backing = state.total_borrowed + state_account.lamports();
     
     // Calculate using the formula: sol_amount * total_supply / backing
     // This calculation doesn't remove the sol_amount from the backing
@@ -65,9 +67,9 @@ pub fn sol_to_eggs_no_trade(state: &EggsState, sol_amount: u64) -> Result<u64> {
     Ok(eggs as u64)
 }
 
-pub fn sol_to_eggs_no_trade_ceil(state: &EggsState, sol_amount: u64) -> Result<u64> {
+pub fn sol_to_eggs_no_trade_ceil_with_account(state: &EggsState, state_account: &AccountInfo, sol_amount: u64) -> Result<u64> {
     // Backing is the balance of the program's account + total borrowed
-    let backing = state.total_borrowed + get_backing_balance(state)?;
+    let backing = state.total_borrowed + state_account.lamports();
     
     // Calculate using the formula: (sol_amount * total_supply + (backing - 1)) / backing
     // This calculation rounds up the result to ensure sufficient collateral
@@ -81,9 +83,9 @@ pub fn sol_to_eggs_no_trade_ceil(state: &EggsState, sol_amount: u64) -> Result<u
     Ok(eggs as u64)
 }
 
-pub fn sol_to_eggs_lev(state: &EggsState, sol_amount: u64, fee: u64) -> Result<u64> {
+pub fn sol_to_eggs_lev_with_account(state: &EggsState, state_account: &AccountInfo, sol_amount: u64, fee: u64) -> Result<u64> {
     // Backing is the balance of the program's account + total borrowed - fee
-    let backing = state.total_borrowed + get_backing_balance(state)? - fee;
+    let backing = state.total_borrowed + state_account.lamports() - fee;
     
     // Calculate using the formula: (sol_amount * total_supply + (backing - 1)) / backing
     // This calculation is used for leverage operations, accounting for the fee
@@ -116,25 +118,10 @@ pub fn get_interest_fee(amount: u64, number_of_days: u64) -> Result<u64> {
     Ok(fee as u64)
 }
 
-pub fn get_backing_balance(state: &EggsState) -> Result<u64> {
-    // WARNING: This is a mock implementation
-    //
-    // In an actual Solana program running on-chain, you would:
-    // 1. Accept a state_account: &AccountInfo parameter 
-    // 2. Return state_account.lamports() to get the actual SOL balance
-    //
-    // Since this function is called from multiple places but doesn't have
-    // access to the AccountInfo in its current form, we're using a placeholder
-    // calculation based on the bump seed.
-    
-    // For deployment, this entire function should be rewritten to use
-    // the actual account's lamports.
-    
-    // Placeholder implementation for testing/development:
-    let bump = state.bump as u64;
-    let backing_balance = 1_000_000_000 + (bump * 1_000_000); // 1 SOL + bump-based adjustment
-    
-    Ok(backing_balance)
+// The real implementation that should be used in instruction contexts
+pub fn get_backing_balance_from_account(state_account: &AccountInfo) -> Result<u64> {
+    // Returns the actual SOL balance of the program account
+    Ok(state_account.lamports())
 }
 
 pub fn is_loan_expired(loan: &Loan, current_time: i64) -> bool {
@@ -168,32 +155,32 @@ pub fn sub_loans_by_date(
 }
 
 pub fn liquidate(state: &mut EggsState) -> Result<()> {
+    // This is a stub function that should be replaced with the actual liquidation logic
+    // The real liquidation process happens in the liquidate_loans instruction
+    
+    // In a real implementation, we would need access to the following:
+    // 1. Program state account
+    // 2. Token mint
+    // 3. Escrow accounts
+    // 4. DailyLoanData accounts for each date
+    
+    // Since we can't access those accounts from here, we just update the last liquidation date
+    // The actual liquidation should be performed by calling the liquidate_loans instruction
+    
     let current_time = Clock::get()?.unix_timestamp;
-    let mut date = state.last_liquidation_date;
-    
-    // Process all expired loans up to the current midnight
-    while date < current_time {
-        // In a complete implementation, we would:
-        // 1. Get the DailyLoanData for the date
-        // 2. Add the borrowed and collateral amounts to a running total
-        // 3. Process the liquidation of those loans
-        
-        date += 86400; // advance by one day
-    }
-    
-    // Update the last liquidation date
     state.last_liquidation_date = get_midnight_timestamp(current_time);
     
     Ok(())
 }
 
-pub fn safety_check(state: &mut EggsState, sol: u64) -> Result<()> {
+// The real implementation with account info
+pub fn safety_check_with_account(state: &mut EggsState, state_account: &AccountInfo, sol: u64) -> Result<()> {
     // Safety check to ensure the price of EGGS can't decrease
     // and verify other conditions for program stability
     
     // Calculate new price: backing * 10^9 / total_supply
     // The price is measured in terms of how many lamports (SOL's smallest unit) one EGGS token is worth
-    let backing = state.total_borrowed + get_backing_balance(state)?;
+    let backing = state.total_borrowed + state_account.lamports();
     let total_supply = state.total_minted;
     
     if total_supply == 0 {
@@ -211,9 +198,8 @@ pub fn safety_check(state: &mut EggsState, sol: u64) -> Result<()> {
         return Err(EggsError::PriceDecrease.into());
     }
     
-    // In a real implementation, we'd also check:
-    // - That total collateral <= contract's EGGS balance
-    // - Other safety conditions relevant to the protocol
+    // Check that total collateral <= contract's EGGS balance
+    // This would require passing in the escrow token account to verify
     
     // Update the last price
     state.last_price = new_price as u64;
@@ -400,11 +386,22 @@ pub struct Initialize<'info> {
         payer = authority,
         mint::decimals = 9,
         mint::authority = state_account,
+        mint::freeze_authority = state_account,
     )]
     pub mint: Account<'info, Mint>,
     
+    /// Associated token account for the authority (token creator)
+    #[account(
+        init_if_needed,
+        payer = authority,
+        associated_token::mint = mint,
+        associated_token::authority = authority
+    )]
+    pub authority_token_account: Account<'info, TokenAccount>,
+    
     pub system_program: Program<'info, System>,
     pub token_program: Program<'info, Token>,
+    pub associated_token_program: Program<'info, AssociatedToken>,
     pub rent: Sysvar<'info, Rent>,
 }
 
@@ -537,6 +534,17 @@ pub struct LoanOperation<'info> {
     )]
     pub authority_token_account: Account<'info, TokenAccount>,
     
+    /// Escrow token account to hold the collateral
+    #[account(
+        init_if_needed,
+        payer = authority,
+        token::mint = mint,
+        token::authority = state_account,
+        seeds = [b"escrow", authority.key().as_ref()],
+        bump
+    )]
+    pub escrow_token_account: Account<'info, TokenAccount>,
+    
     /// CHECK: This is the fee address
     #[account(
         mut,
@@ -597,10 +605,12 @@ pub struct LiquidateLoans<'info> {
     
     #[account(
         mut,
-        associated_token::mint = mint,
-        associated_token::authority = state_account
+        token::mint = mint,
+        token::authority = state_account,
+        seeds = [b"escrow", authority.key().as_ref()],
+        bump
     )]
-    pub program_token_account: Account<'info, TokenAccount>,
+    pub escrow_token_account: Account<'info, TokenAccount>,
     
     #[account(mut)]
     pub daily_loan_data: Account<'info, DailyLoanData>,

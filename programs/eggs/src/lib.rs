@@ -17,7 +17,7 @@ use states::*;
 use error::*;
 use utils::*;
 
-declare_id!("Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS"); // This will be replaced with the actual program ID
+declare_id!("2vLjCSQp3vGJj2kqh5CHdn5LrvfXWiANrjq1a2NDUPUY"); // This will be replaced with the actual program ID
 
 #[program]
 pub mod eggs {

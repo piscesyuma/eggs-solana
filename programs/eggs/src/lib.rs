@@ -233,23 +233,13 @@ pub mod eggs {
             ],
         )?;
         
-        // Calculate EGGS to mint
-        // Update to use the real implementation for token conversion
-        let sol_amount = amount_lamports;
+        // Calculate EGGS to mint using the utility function
         let state_account = &ctx.accounts.state_account;
         
-        // Get the backing (SOL balance + borrowed)
-        let backing = state.total_borrowed + state_account.lamports() - sol_amount;
-        let total_supply = state.total_minted;
+        // Use the sol_to_eggs_with_account utility function instead of reimplementing the logic
+        let eggs = sol_to_eggs_with_account(state, state_account, amount_lamports)?;
         
-        // Calculate eggs: sol_amount * total_supply / (backing)
-        let eggs = if backing == 0 || total_supply == 0 {
-            return Err(EggsError::InvalidParameter.into());
-        } else {
-            (sol_amount as u128 * total_supply as u128) / backing as u128
-        };
-        
-        let eggs_with_fee = (eggs as u64 * state.buy_fee as u64) / FEE_BASE_1000 as u64;
+        let eggs_with_fee = (eggs * state.buy_fee as u64) / FEE_BASE_1000 as u64;
         
         // Ensure we don't exceed MAX_SUPPLY
         require!(
@@ -311,19 +301,11 @@ pub mod eggs {
         let state = &mut ctx.accounts.state;
         liquidate(state)?;
         
-        // Calculate SOL to be sent using real account info
+        // Calculate SOL to be sent using utility function
         let state_account = &ctx.accounts.state_account;
         
-        // Get the backing (SOL balance + borrowed)
-        let backing = state.total_borrowed + state_account.lamports();
-        let total_supply = state.total_minted;
-        
-        // Calculate sol: eggs_amount * backing / total_supply
-        let sol = if total_supply == 0 {
-            return Err(EggsError::InvalidParameter.into());
-        } else {
-            (eggs_amount as u128 * backing as u128) / total_supply as u128
-        };
+        // Use the eggs_to_sol_with_account utility function
+        let sol = eggs_to_sol_with_account(state, state_account, eggs_amount)?;
         
         // Burn EGGS from the seller
         token::burn(

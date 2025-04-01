@@ -1,0 +1,22 @@
+[package]
+name = "mushi_program"
+version = "0.1.0"
+description = "Mushi program for Solana"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib", "lib"]
+name = "mushi_program"
+
+[features]
+no-entrypoint = []
+no-idl = []
+no-log-ix-name = []
+cpi = ["no-entrypoint"]
+default = []
+
+[dependencies]
+anchor-lang = { version="0.28.0", features = ["init-if-needed"] }
+anchor-spl = "0.28.0"
+ahash = "=0.8.6"
+mpl-token-metadata = "4.1.2"

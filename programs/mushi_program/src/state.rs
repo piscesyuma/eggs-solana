@@ -9,7 +9,7 @@ use crate::{
 
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, Default)]
 pub struct DateEntry {
-    pub date: u64,
+    pub date: u32,
     pub amount: u64,
 }
 
@@ -33,7 +33,7 @@ pub struct MainState {
 
 impl MainState {
     pub const PREFIX_SEED: &'static [u8] = b"main_state";
-    pub const MAX_SIZE: usize = std::mem::size_of::<Self>();
+    pub const MAX_SIZE: usize = std::mem::size_of::<Self>() + 4 + 12 * 366 + 4 + 12 * 366;
 
     pub fn calc_buy_amount(&self, sol_amount: u64) -> Result<u64> {
         let token_amount = sol_amount
@@ -89,11 +89,11 @@ impl MainState {
     pub fn update_borrowed(&mut self, date: u64, amount: u64) -> Result<()> {
         if let Some(entry) = self.borrowed_by_date
             .iter_mut()
-            .find(|e| e.date == date) 
+            .find(|e| e.date == date as u32) 
         {
             entry.amount = amount;
         } else {
-            self.borrowed_by_date.push(DateEntry { date, amount });
+            self.borrowed_by_date.push(DateEntry { date: date as u32, amount });
         }
         Ok(())
     }
@@ -101,11 +101,11 @@ impl MainState {
     pub fn update_collateral(&mut self, date: u64, amount: u64) -> Result<()> {
         if let Some(entry) = self.collateral_by_date
             .iter_mut()
-            .find(|e| e.date == date) 
+            .find(|e| e.date == date as u32) 
         {
             entry.amount = amount;
         } else {
-            self.collateral_by_date.push(DateEntry { date, amount });
+            self.collateral_by_date.push(DateEntry { date: date as u32, amount });
         }
         Ok(())
     }
@@ -114,7 +114,7 @@ impl MainState {
     pub fn get_borrowed(&self, date: u64) -> u64 {
         self.borrowed_by_date
             .iter()
-            .find(|e| e.date == date)
+            .find(|e| e.date == date as u32)
             .map(|e| e.amount)
             .unwrap_or(0)
     }
@@ -123,7 +123,7 @@ impl MainState {
     pub fn get_collateral(&self, date: u64) -> u64 {
         self.collateral_by_date
             .iter()
-            .find(|e| e.date == date)
+            .find(|e| e.date == date as u32)
             .map(|e| e.amount)
             .unwrap_or(0)
     }
@@ -132,21 +132,21 @@ impl MainState {
         // Update borrowed amount for the date
         if let Some(entry) = self.borrowed_by_date
             .iter_mut()
-            .find(|e| e.date == date) 
+            .find(|e| e.date == date as u32) 
         {
             entry.amount = entry.amount.checked_add(borrowed).unwrap();
         } else {
-            self.borrowed_by_date.push(DateEntry { date, amount: borrowed });
+            self.borrowed_by_date.push(DateEntry { date: date as u32, amount: borrowed });
         }
 
         // Update collateral amount for the date
         if let Some(entry) = self.collateral_by_date
             .iter_mut()
-            .find(|e| e.date == date) 
+            .find(|e| e.date == date as u32) 
         {
             entry.amount = entry.amount.checked_add(collateral).unwrap();
         } else {
-            self.collateral_by_date.push(DateEntry { date, amount: collateral });
+            self.collateral_by_date.push(DateEntry { date: date as u32, amount: collateral });
         }
 
         // Update total amounts
@@ -160,21 +160,21 @@ impl MainState {
         // Update borrowed amount for the date
         if let Some(entry) = self.borrowed_by_date
             .iter_mut()
-            .find(|e| e.date == date) 
+            .find(|e| e.date == date as u32) 
         {
             entry.amount = entry.amount.checked_sub(borrowed).unwrap();
         } else {
-            self.borrowed_by_date.push(DateEntry { date, amount: 0 });
+            self.borrowed_by_date.push(DateEntry { date: date as u32, amount: 0 });
         }
 
         // Update collateral amount for the date
         if let Some(entry) = self.collateral_by_date
             .iter_mut()
-            .find(|e| e.date == date) 
+            .find(|e| e.date == date as u32) 
         {
             entry.amount = entry.amount.checked_sub(collateral).unwrap();
         } else {
-            self.collateral_by_date.push(DateEntry { date, amount: 0 });
+            self.collateral_by_date.push(DateEntry { date: date as u32, amount: 0 });
         }
 
         // Update total amounts

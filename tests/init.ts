@@ -8,22 +8,24 @@ const log = console.log;
 describe("mushi_program", () => {
   // Configure the client to use the local cluster.
   anchor.setProvider(anchor.AnchorProvider.env());
+
   const provider = anchor.AnchorProvider.env();
   const connection = provider.connection;
   const rpc = connection.rpcEndpoint;
   const programId = new web3.PublicKey(
-    "EBqWNug7tcj1azud1KKhLYdi7Wk6QTqNxWQWtrKjTT8v"
+    "65zNCEhvCtWo6DcphN6omP5Cz3hFo6zjUkHZfEauMDXr"
   );
   let mainStateInfo: MainStateInfo;
-    const connectivity = new MushiProgramRpc({
+  const connectivity = new MushiProgramRpc({
     rpc,
     wallet: provider.wallet,
     programId,
   });
   const user = provider.publicKey;
 
-    const feeReceiver = new web3.PublicKey("FEE_RECEIVER ADDRESS");
-  const tokenAmount = 100_000;
+  // const feeReceiver = new web3.PublicKey("FEE_RECEIVER ADDRESS");
+  const feeReceiver = new web3.PublicKey("8CHNnNzHme7hVv2Qw2WHbxX54EWJ6NMkjJ1zRTEkNvsg");
+  const solAmount = 1;   // 1 SOL
   const tokenName = "Mushi";
   const tokenSymbol = "MUSHI";
   const tokenUri = "sss";
@@ -34,7 +36,7 @@ describe("mushi_program", () => {
       const initRes = await connectivity.initialize({
         feeOnBuy: 10,
         feeReceiver,
-        tokenAmount,
+        solAmount,
         tokenName,
         tokenSymbol,
         tokenUri,

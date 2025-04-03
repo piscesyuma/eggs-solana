@@ -33,7 +33,7 @@ pub fn initialize(ctx: Context<AInitialize>, input: InitializeInput) -> Result<(
     let state = &mut ctx.accounts.main_state;
     let mint = ctx.accounts.token.to_account_info();
     //checks
-    let token_amount = input.sol_amount * LAMPORTS_PER_SOL * MIN;
+    let token_amount = input.sol_amount * MIN;
     if token_amount < LAMPORTS_PER_SOL {
         return Err(MushiProgramError::InvalidInput.into());
     }

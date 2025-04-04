@@ -10,6 +10,7 @@ import {
 const ONE_BASIS_POINTS = 100_000;
 const Seeds = {
   mainState: Buffer.from("main_state"),
+  globalState: Buffer.from("global_stats"),
   vault: Buffer.from("vault"),
 };
 const log = console.log;
@@ -32,10 +33,15 @@ export async function sleep(ms: number) {
 }
 export type MainStateInfo = {
   admin: web3.PublicKey;
-  feeOnBuy: number;
   feeReceiver: web3.PublicKey;
+  sellFee: number;
+  buyFee: number;
+  buyFeeLeverage: number;
+};
+export type GlobalStateInfo = {
+  tokenSupply: number;
   token: web3.PublicKey;
-  initOn: number;
+  started: boolean;
 };
 
 export class MushiProgramRpc {
@@ -43,6 +49,7 @@ export class MushiProgramRpc {
   private connection: web3.Connection;
   private programId: web3.PublicKey;
   private mainState: web3.PublicKey;
+  private globalState: web3.PublicKey;
   private vaultOwner: web3.PublicKey;
   private provider: AnchorProvider;
 
@@ -64,6 +71,10 @@ export class MushiProgramRpc {
     this.program = new Program(IDL, programId, provider);
     this.mainState = web3.PublicKey.findProgramAddressSync(
       [Seeds.mainState],
+      this.programId
+    )[0];
+    this.globalState = web3.PublicKey.findProgramAddressSync(
+      [Seeds.globalState],
       this.programId
     )[0];
     this.vaultOwner = web3.PublicKey.findProgramAddressSync(
@@ -136,13 +147,14 @@ export class MushiProgramRpc {
 
   async getMainStateInfo(): Promise<MainStateInfo | null> {
     try {
-      const mainStateData = await this.program.account.mainState.fetch(this.mainState);
+      const { admin, feeReceiver, sellFee, buyFee, buyFeeLeverage } =
+        await this.program.account.mainState.fetch(this.mainState);
       return {
-        admin: mainStateData.admin,
-        token: mainStateData.token,
-        initOn: Number(mainStateData.lastLiquidationDate?.toString() || "0"),
-        feeOnBuy: Number(mainStateData.buyFee?.toString() || "0") / ONE_BASIS_POINTS,
-        feeReceiver: mainStateData.feeReceiver,
+        admin,
+        sellFee: Number(sellFee.toString()) / ONE_BASIS_POINTS,
+        buyFee: Number(buyFee.toString()) / ONE_BASIS_POINTS,
+        buyFeeLeverage: Number(buyFeeLeverage.toString()) / ONE_BASIS_POINTS,
+        feeReceiver,
       };
     } catch (getMainStateInfoError) {
       log({ getMainStateInfoError });
@@ -150,16 +162,64 @@ export class MushiProgramRpc {
     }
   }
 
+  async getGlobalInfo(): Promise<GlobalStateInfo | null> {
+    try {
+      const { tokenSupply, token, started } =
+        await this.program.account.globalStats.fetch(this.globalState);
+      return {
+        tokenSupply: Number(tokenSupply.toString()),
+        token,
+        started,
+      };
+    } catch (getGlobalStateInfoError) {
+      log({ getGlobalStateInfoError });
+      return null;
+    }
+  }
+
   async initialize(input: {
+    feeReceiver: web3.PublicKey;
+    sellFee: number;
+    buyFee: number;
+    buyFeeLeverage: number;
+  }): Promise<SendTxResult> {
+    try {
+      const admin = this.provider.publicKey;
+      const ix = await this.program.methods
+        .initMainState({
+          feeReceiver: input.feeReceiver,
+          sellFee: new BN(Math.trunc(input.sellFee * ONE_BASIS_POINTS)),
+          buyFee: new BN(Math.trunc(input.buyFee * ONE_BASIS_POINTS)),
+          buyFeeLeverage: new BN(Math.trunc(input.buyFeeLeverage * ONE_BASIS_POINTS)),
+        })
+        .accounts({
+          admin,
+          mainState: this.mainState,
+          globalState: this.globalState,
+          systemProgram,
+        })
+        .instruction();
+      const ixs = [
+        web3.ComputeBudgetProgram.setComputeUnitLimit({ units: 300_000 }),
+        ix,
+      ];
+      const txSignature = await this.sendTx(ixs, []);
+      if (!txSignature) throw "failed to send tx";
+      return { isPass: true, info: { txSignature } };
+    } catch (initializeError) {
+      log({ initializeError });
+      return { isPass: false, info: "failed to process the input" };
+    }
+  }
+
+  async start(input: {
     tokenName: string;
     tokenSymbol: string;
     tokenUri: string;
     solAmount: number;
-    feeReceiver: web3.PublicKey;
-    feeOnBuy: number;
   }): Promise<SendTxResult> {
     try {
-      const { tokenName, tokenSymbol, tokenUri } = input;
+      const { tokenName, tokenSymbol, tokenUri, solAmount } = input;
       const tokenKp = web3.Keypair.generate();
       const token = tokenKp.publicKey;
       const admin = this.provider.publicKey;
@@ -174,16 +234,18 @@ export class MushiProgramRpc {
       )[0];
 
       const ix = await this.program.methods
-        .initialize({
-          feeReceiver: input.feeReceiver,
+        .start({
+          solAmount: new BN(
+            Math.trunc(solAmount * SOL_DECIMALS_HELPER)
+          ),
           tokenName,
           tokenSymbol,
           tokenUri,
-          solAmount: new BN(input.solAmount * SOL_DECIMALS_HELPER),
         })
         .accounts({
           admin,
           mainState: this.mainState,
+          globalState: this.globalState,
           tokenVault: tokenVault,
           tokenVaultOwner: this.vaultOwner,
           associatedTokenProgram,
@@ -208,117 +270,112 @@ export class MushiProgramRpc {
     }
   }
 
-  async updateMainState(input: {
-    feeReceiver?: web3.PublicKey;
-    admin?: web3.PublicKey;
-  }): Promise<SendTxResult> {
-    try {
-      const admin = this.provider.publicKey;
-      const feeReceiver = input.feeReceiver ?? null;
-      const newAdmin = input.admin ?? null;
-      const ix = await this.program.methods
-        .updateMainState({
-          feeReceiver, admin: newAdmin,
-          buyFee: new BN(975),
-          sellFee: new BN(975),
-          buyFeeLeverage: new BN(10),
-        })
-        .accounts({ admin, mainState: this.mainState })
-        .instruction();
-      const ixs = [
-        web3.ComputeBudgetProgram.setComputeUnitLimit({ units: 100_000 }),
-        ix,
-      ];
-      const updateTxRes = await this.sendTx(ixs);
-      if (!updateTxRes) return { isPass: false, info: "failed to send tx" };
-      return { isPass: true, info: { txSignature: updateTxRes } };
-    } catch (updateMainStateError) {
-      log({ updateMainStateError });
-      return { isPass: false, info: "failed to process input" };
-    }
-  }
+  // async updateMainState(input: {
+  //   feeReceiver?: web3.PublicKey;
+  //   admin?: web3.PublicKey;
+  // }): Promise<SendTxResult> {
+  //   try {
+  //     const admin = this.provider.publicKey;
+  //     const feeReceiver = input.feeReceiver ?? null;
+  //     const newAdmin = input.admin ?? null;
+  //     const ix = await this.program.methods
+  //       .updateMainState({ feeReceiver, admin: newAdmin })
+  //       .accounts({ admin, mainState: this.mainState })
+  //       .instruction();
+  //     const ixs = [
+  //       web3.ComputeBudgetProgram.setComputeUnitLimit({ units: 100_000 }),
+  //       ix,
+  //     ];
+  //     const updateTxRes = await this.sendTx(ixs);
+  //     if (!updateTxRes) return { isPass: false, info: "failed to send tx" };
+  //     return { isPass: true, info: { txSignature: updateTxRes } };
+  //   } catch (updateMainStateError) {
+  //     log({ updateMainStateError });
+  //     return { isPass: false, info: "failed to process input" };
+  //   }
+  // }
 
-  async buy(
-    solAmount: number,
-    mainStateInfo: MainStateInfo
-  ): Promise<SendTxResult> {
-    try {
-      const { token, feeReceiver } = mainStateInfo;
-      const rawSolAmount = Math.trunc(solAmount * SOL_DECIMALS_HELPER);
-      const user = this.provider.publicKey;
-      const userAta = getAssociatedTokenAddressSync(token, user);
-      const tokenVault = getAssociatedTokenAddressSync(
-        token,
-        this.vaultOwner,
-        true
-      );
-      const ix = await this.program.methods
-        .buy(new BN(rawSolAmount))
-        .accounts({
-          mainState: this.mainState,
-          user,
-          userAta,
-          associatedTokenProgram,
-          token,
-          tokenProgram,
-          tokenVault,
-          tokenVaultOwner: this.vaultOwner,
-          feeReceiver,
-          systemProgram,
-        })
-        .instruction();
-      const ixs = [
-        web3.ComputeBudgetProgram.setComputeUnitLimit({ units: 150_000 }),
-        ix,
-      ];
-      const txRes = await this.sendTx(ixs);
-      if (!txRes) throw "failed to send tx";
-      return { isPass: true, info: { txSignature: txRes } };
-    } catch (buyError) {
-      log({ buyError });
-      return { isPass: false, info: "failed to process input" };
-    }
-  }
+//   async buy(
+//     solAmount: number,
+//     mainStateInfo: MainStateInfo
+//   ): Promise<SendTxResult> {
+//     try {
+//       const { token, feeReceiver } = mainStateInfo;
+//       const rawSolAmount = Math.trunc(solAmount * SOL_DECIMALS_HELPER);
+//       const user = this.provider.publicKey;
+//       const userAta = getAssociatedTokenAddressSync(token, user);
+//       const tokenVault = getAssociatedTokenAddressSync(
+//         token,
+//         this.vaultOwner,
+//         true
+//       );
+//       const ix = await this.program.methods
+//         .buy(new BN(rawSolAmount))
+//         .accounts({
+//           mainState: this.mainState,
+//           user,
+//           userAta,
+//           associatedTokenProgram,
+//           token,
+//           tokenProgram,
+//           tokenVault,
+//           tokenVaultOwner: this.vaultOwner,
+//           feeReceiver,
+//           systemProgram,
+//         })
+//         .instruction();
+//       const ixs = [
+//         web3.ComputeBudgetProgram.setComputeUnitLimit({ units: 150_000 }),
+//         ix,
+//       ];
+//       const txRes = await this.sendTx(ixs);
+//       if (!txRes) throw "failed to send tx";
+//       return { isPass: true, info: { txSignature: txRes } };
+//     } catch (buyError) {
+//       log({ buyError });
+//       return { isPass: false, info: "failed to process input" };
+//     }
+//   }
 
-  async sell(
-    tokenAmount: number,
-    mainStateInfo: MainStateInfo
-  ): Promise<SendTxResult> {
-    try {
-      const { token, feeReceiver } = mainStateInfo;
-      const rawTokenAmount = Math.trunc(tokenAmount * TOKEN_DECIMALS_HELPER);
-      const user = this.provider.publicKey;
-      const userAta = getAssociatedTokenAddressSync(token, user);
-      const tokenVault = getAssociatedTokenAddressSync(
-        token,
-        this.vaultOwner,
-        true
-      );
-      const ix = await this.program.methods
-        .sell(new BN(rawTokenAmount))
-        .accounts({
-          mainState: this.mainState,
-          user,
-          userAta,
-          associatedTokenProgram,
-          token,
-          tokenProgram,
-          tokenVault,
-          tokenVaultOwner: this.vaultOwner,
-          feeReceiver,
-          systemProgram,
-        })
-        .instruction();
-      const ixs = [
-        web3.ComputeBudgetProgram.setComputeUnitLimit({ units: 150_000 }),
-        ix,
-      ];
-      const txRes = await this.sendTx(ixs);
-      if (!txRes) throw "failed to send tx";
-      return { isPass: true, info: { txSignature: txRes } };
-    } catch (sellError) {
-      log({ sellError });
-      return { isPass: false, info: "failed to process input" };
-    }
-  }
+//   async sell(
+//     tokenAmount: number,
+//     mainStateInfo: MainStateInfo
+//   ): Promise<SendTxResult> {
+//     try {
+//       const { token, feeReceiver } = mainStateInfo;
+//       const rawTokenAmount = Math.trunc(tokenAmount * TOKEN_DECIMALS_HELPER);
+//       const user = this.provider.publicKey;
+//       const userAta = getAssociatedTokenAddressSync(token, user);
+//       const tokenVault = getAssociatedTokenAddressSync(
+//         token,
+//         this.vaultOwner,
+//         true
+//       );
+//       const ix = await this.program.methods
+//         .sell(new BN(rawTokenAmount))
+//         .accounts({
+//           mainState: this.mainState,
+//           user,
+//           userAta,
+//           associatedTokenProgram,
+//           token,
+//           tokenProgram,
+//           tokenVault,
+//           tokenVaultOwner: this.vaultOwner,
+//           feeReceiver,
+//           systemProgram,
+//         })
+//         .instruction();
+//       const ixs = [
+//         web3.ComputeBudgetProgram.setComputeUnitLimit({ units: 150_000 }),
+//         ix,
+//       ];
+//       const txRes = await this.sendTx(ixs);
+//       if (!txRes) throw "failed to send tx";
+//       return { isPass: true, info: { txSignature: txRes } };
+//     } catch (sellError) {
+//       log({ sellError });
+//       return { isPass: false, info: "failed to process input" };
+//     }
+//   }
 }

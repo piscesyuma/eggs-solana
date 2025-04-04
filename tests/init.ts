@@ -22,7 +22,7 @@ describe("mushi_program", () => {
   });
   const user = provider.publicKey;
 
-    const feeReceiver = new web3.PublicKey("56dpG2ZipYhNsUvcntCFEFYeeCQCXLM5fayr9xUP55u9");
+    const feeReceiver = new web3.PublicKey("8CHNnNzHme7hVv2Qw2WHbxX54EWJ6NMkjJ1zRTEkNvsg");
   const tokenAmount = 100_000;
   const tokenName = "mushi";
   const tokenSymbol = "MUSHI";

@@ -163,3 +163,57 @@ pub fn get_midnight_timestamp(timestamp: i64) -> i64 {
 pub fn get_date_from_timestamp(timestamp: i64) -> i64 {
     timestamp - (timestamp % SECONDS_IN_A_DAY)
 }
+
+/// Converts a Unix timestamp to a date string in YYYY-MM-DD format.
+/// First normalizes the timestamp to midnight (00:00:00) of the day.
+pub fn get_date_string_from_timestamp(timestamp: i64) -> String {
+    // Normalize to midnight
+    let normalized_timestamp = get_date_from_timestamp(timestamp);
+    
+    // Create a readable date in UTC
+    let seconds = normalized_timestamp;
+    let days_since_epoch = seconds / SECONDS_IN_A_DAY;
+    
+    // 1970-01-01 is the Unix epoch (day 0)
+    let mut year = 1970;
+    let mut days_remaining = days_since_epoch;
+    
+    // Advance through years
+    loop {
+        let days_in_year = if is_leap_year(year) { 366 } else { 365 };
+        if days_remaining < days_in_year {
+            break;
+        }
+        days_remaining -= days_in_year;
+        year += 1;
+    }
+    
+    // Determine month and day
+    let days_in_months = if is_leap_year(year) {
+        [31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
+    } else {
+        [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
+    };
+    
+    let mut month = 0;
+    for days_in_month in days_in_months.iter() {
+        if days_remaining < *days_in_month {
+            break;
+        }
+        days_remaining -= *days_in_month;
+        month += 1;
+    }
+    
+    // Month is 0-based in our calculation, but we want 1-based
+    let month = month + 1;
+    // Day is 0-based, need to add 1
+    let day = days_remaining + 1;
+    
+    // Format as YYYY-MM-DD
+    format!("{:04}-{:02}-{:02}", year, month, day)
+}
+
+// Helper function to determine if a year is a leap year
+fn is_leap_year(year: i64) -> bool {
+    (year % 4 == 0) && (year % 100 != 0 || year % 400 == 0)
+}

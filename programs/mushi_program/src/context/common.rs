@@ -4,7 +4,7 @@ use anchor_spl::{associated_token::AssociatedToken, token_interface};
 use crate::{
     constants::VAULT_SEED, 
     error::MushiProgramError, 
-    utils::get_date_from_timestamp, 
+    utils::{get_date_from_timestamp, get_date_string_from_timestamp}, 
     MainState, GlobalStats, DailyStats,
 };
 
@@ -30,7 +30,7 @@ pub struct ACommon<'info> {
         space = 8 + DailyStats::MAX_SIZE,
         seeds = [
             b"daily-stats".as_ref(),
-            &get_date_from_timestamp(Clock::get()?.unix_timestamp).to_le_bytes()
+            get_date_string_from_timestamp(Clock::get()?.unix_timestamp).as_bytes()  
         ],
         bump
     )]
@@ -41,7 +41,7 @@ pub struct ACommon<'info> {
         space = 8 + DailyStats::MAX_SIZE,
         seeds = [
             b"daily-stats".as_ref(),
-            &global_state.last_liquidation_date.to_le_bytes()
+            get_date_string_from_timestamp(global_state.last_liquidation_date).as_bytes()
         ],
         bump
     )]
@@ -81,12 +81,22 @@ pub struct ACommon<'info> {
 }
 
 impl<'info> ACommon<'info> {
+    /// Returns the current date in YYYY-MM-DD format
+    pub fn get_current_date_string(&self) -> Result<String> {
+        Ok(get_date_string_from_timestamp(Clock::get()?.unix_timestamp))
+    }
+
+    /// Returns the global state's last liquidation date in YYYY-MM-DD format
+    pub fn get_liquidation_date_string(&self) -> Result<String> {
+        Ok(get_date_string_from_timestamp(self.global_state.last_liquidation_date))
+    }
+
     pub fn get_backing(&self) -> Result<u64> {
         Ok(self.global_state.total_borrowed + self.token_vault_owner.lamports())
     }
     pub fn sol_to_mushi(&self, sol_amount: u64) -> Result<u64>{
         Ok(
-            sol_amount.checked_mul(self.global_state.token_supply).unwrap()
+            ((sol_amount as u128).checked_mul(self.global_state.token_supply as u128).unwrap() as u64)
             .checked_div(
                 self.get_backing()?.checked_sub(sol_amount).unwrap()
             ).unwrap()

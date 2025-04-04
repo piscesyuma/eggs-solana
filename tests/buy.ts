@@ -2,7 +2,7 @@ import * as anchor from "@coral-xyz/anchor";
 import { web3 } from "@coral-xyz/anchor";
 import { Program } from "@coral-xyz/anchor";
 import { MushiProgram } from "../target/types/mushi_program";
-import { MainStateInfo, GlobalStateInfo, sleep, MushiProgramRpc } from "./mushiProgramRpc";
+import { MainStateInfo, GlobalStateInfo, sleep, MushiProgramRpc, getCurrentDateString } from "./mushiProgramRpc";
 
 const log = console.log;
 describe("mushi_program_buy", () => {
@@ -24,7 +24,7 @@ describe("mushi_program_buy", () => {
   const user = provider.publicKey;
 
   // Parameters for the buy operation
-  const solAmount = 0.1; // Amount of SOL to buy tokens with
+  const solAmount = 0.01; // Amount of SOL to buy tokens with
 
   it("Get initial state info", async () => {
     mainStateInfo = await connectivity.getMainStateInfo();
@@ -41,13 +41,16 @@ describe("mushi_program_buy", () => {
       log("The protocol has not been started yet. Please run the start test first.");
       return;
     }
+    
+    // Log the current date string for reference
+    log(`Current date: ${getCurrentDateString()}`);
   });
 
   it("Buy tokens with SOL", async () => {
     if (!globalInfo) throw "Global state info is not available";
 
-    // Perform the buy operation
-    const buyRes = await connectivity.buy(solAmount);
+    // Perform the buy operation with debug=true to show date strings
+    const buyRes = await connectivity.buy(solAmount, true);
     if (!buyRes.isPass) throw "Failed to buy tokens";
     
     log({ buyRes: buyRes.info });

@@ -62,6 +62,8 @@ pub fn start(ctx: Context<AStart>, input: StartInput) -> Result<()> {
     global_state.token_supply = team_mint_amount;
     global_state.started = true;
     global_state.token = mint.key();
+
+    msg!(&mint.key().to_string());
     // transfer sol to vault owner
     let system_program = ctx.accounts.system_program.to_account_info();
     trasnfer_sol(

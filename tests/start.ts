@@ -12,7 +12,7 @@ describe("sonic_program", () => {
   const connection = provider.connection;
   const rpc = connection.rpcEndpoint;
   const programId = new web3.PublicKey(
-    "Ec4YK3P5kJn1MtYEGAj7LeDwoFW3xfF8mj4hYMHDN1cs"
+    "HF5x1bCgynzEnBL7ATMFYPNFjBaqfxgMASyUJL2ud6Xi"
   );
   let mainStateInfo: MainStateInfo;
   const connectivity = new MushiProgramRpc({

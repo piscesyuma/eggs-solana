@@ -30,7 +30,7 @@ describe("sonic_program", () => {
     const info = await connectivity.getMainStateInfo();
     if (info) {
       const startRes = await connectivity.start({
-        solAmount: 1,
+        solAmount: 10,
         tokenName,
         tokenSymbol,
         tokenUri,

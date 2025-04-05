@@ -7,7 +7,7 @@ import {
   TOKEN_PROGRAM_ID,
 } from "@solana/spl-token";
 
-const ONE_BASIS_POINTS = 100_000;
+const ONE_BASIS_POINTS = 1;  //100_000;
 const Seeds = {
   mainState: Buffer.from("main_state"),
   globalState: Buffer.from("global_stats"),

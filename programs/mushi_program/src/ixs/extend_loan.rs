@@ -1,0 +1,60 @@
+use anchor_lang::prelude::*;
+use anchor_spl::{associated_token::AssociatedToken, token_interface};
+
+use crate::{
+    constants::{
+        FEES_BUY, FEES_SELL, FEE_BASE_1000, MIN, SECONDS_IN_A_DAY, VAULT_SEED
+    }, 
+    error::MushiProgramError, 
+    utils::{
+        burn_tokens, 
+        get_interest_fee, 
+        get_midnight_timestamp, 
+        liquidate, 
+        mint_to_tokens_by_main_state, 
+        transfer_tokens, 
+        transfer_sol
+    },
+};
+use crate::context::common::ACommon;
+
+pub fn leverage(ctx:Context<ACommon>, sol_amount: u64,number_of_days: u64)->Result<()>{
+    let user_loan = & ctx.accounts.user_loan;
+    let old_end_date = user_loan.end_date;
+    let _number_of_days = user_loan.number_of_days;
+    let borrowed = user_loan.borrowed;
+    let collateral = user_loan.collateral;
+
+    let new_end_date = old_end_date + number_of_days as i64 * SECONDS_IN_A_DAY;
+    let loan_fee = get_interest_fee(borrowed, number_of_days);
+    if !ctx.accounts.is_loan_expired()? {
+        return Err(MushiProgramError::LoanExpired.into());
+    }
+    if loan_fee != sol_amount {
+        return Err(MushiProgramError::InvalidSolAmount.into());
+    }
+    let fee_address_fee = sol_amount.checked_mul(3).unwrap().checked_div(10).unwrap();
+    if fee_address_fee <= MIN {
+        return Err(MushiProgramError::InvalidFeeAmount.into());
+    }
+    let signer_seeds:&[&[&[u8]]] = &[&[VAULT_SEED, &[*ctx.bumps.get("token_vault_owner").unwrap()]]];
+    transfer_sol(
+        ctx.accounts.token_vault_owner.to_account_info(), 
+        ctx.accounts.fee_receiver.to_account_info(), 
+        ctx.accounts.system_program.to_account_info(), 
+        fee_address_fee, 
+        Some(signer_seeds))?;
+    ctx.accounts.sub_loans_by_date(borrowed, collateral, old_end_date)?;
+    ctx.accounts.add_loans_by_date(borrowed, collateral, new_end_date)?;
+    let user_loan = &mut ctx.accounts.user_loan;
+    user_loan.end_date = new_end_date;
+    user_loan.number_of_days = number_of_days + _number_of_days;
+
+    let current_timestamp = Clock::get()?.unix_timestamp;
+    if (new_end_date - current_timestamp) / SECONDS_IN_A_DAY >= 366 {
+        return Err(MushiProgramError::InvalidNumberOfDays.into());
+    }
+    ctx.accounts.safety_check()?;
+    
+    Ok(())
+}

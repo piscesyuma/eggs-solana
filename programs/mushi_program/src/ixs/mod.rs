@@ -15,3 +15,6 @@ pub use borrow::*;
 
 pub mod leverage;
 pub use leverage::*;
+
+pub mod extend_loan;
+pub use extend_loan::*;

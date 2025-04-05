@@ -181,7 +181,7 @@ impl<'info> ACommon<'info> {
         global_state.total_collateral += collateral;
         Ok(())
     }
-    pub fn sub_loans_by_date(&mut self, borrowed: u64, collateral: u64, date: u64) -> Result<()> {
+    pub fn sub_loans_by_date(&mut self, borrowed: u64, collateral: u64, date: i64) -> Result<()> {
         let daily_state = &mut self.daily_state_by_date;
         let global_state = &mut self.global_state;
         daily_state.borrowed -= borrowed;

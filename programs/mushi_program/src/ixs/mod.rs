@@ -21,3 +21,9 @@ pub use position::*;
 
 pub mod extend_loan;
 pub use extend_loan::*;
+
+pub mod repay;
+pub use repay::*;
+
+pub mod remove_collateral;
+pub use remove_collateral::*;

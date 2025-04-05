@@ -47,4 +47,7 @@ pub enum MushiProgramError {
 
     #[msg("invalid collateral amount")]
     InvalidCollateralAmount,
+
+    #[msg("remove collateral failed")]
+    RemoveCollateralFailed,
 }

@@ -99,6 +99,17 @@ pub fn trasnfer_sol<'info>(
     Ok(())
 }
 
+pub fn trasnfer_sol_to_pubkey<'info>(
+    sender: AccountInfo<'info>,
+    receiver: &Pubkey,
+    system_program: AccountInfo<'info>,
+    amount: u64,
+) -> Result<()> {
+    let ix = transfer(sender.key, receiver, amount);
+    invoke(&ix, &[sender, system_program])?;
+    Ok(())
+}
+
 pub fn liquidate<'info>(
     last_liquidation_date_state: &mut DailyStats,
     global_state: &mut GlobalStats,

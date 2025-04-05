@@ -83,7 +83,7 @@ pub fn transfer_tokens<'info>(
     Ok(())
 }
 
-pub fn trasnfer_sol<'info>(
+pub fn transfer_sol<'info>(
     sender: AccountInfo<'info>,
     receiver: AccountInfo<'info>,
     system_program: AccountInfo<'info>,

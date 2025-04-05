@@ -13,7 +13,7 @@ use crate::{
         liquidate, 
         mint_to_tokens_by_main_state, 
         transfer_tokens, 
-        trasnfer_sol
+        transfer_sol
     },
 };
 use crate::context::common::ACommon;
@@ -73,18 +73,18 @@ pub fn borrow(ctx:Context<ACommon>, sol_amount:u64, number_of_days: u64)->Result
         return Err(MushiProgramError::InvalidFeeAmount.into());
     }
     let signer_seeds:&[&[&[u8]]] = &[&[VAULT_SEED, &[*ctx.bumps.get("token_vault_owner").unwrap()]]];
-    trasnfer_sol(
+    transfer_sol(
         ctx.accounts.token_vault_owner.to_account_info(), 
         ctx.accounts.user.to_account_info(), 
         ctx.accounts.system_program.to_account_info(), 
         new_user_borrow - sol_fee, 
         Some(signer_seeds))?;
-    trasnfer_sol(
-        ctx.accounts.token_vault_owner.to_account_info(), 
-        ctx.accounts.fee_receiver.to_account_info(), 
-        ctx.accounts.system_program.to_account_info(), 
-        fee_address_fee, 
-        Some(signer_seeds))?;
+    transfer_sol(
+    ctx.accounts.token_vault_owner.to_account_info(), 
+    ctx.accounts.fee_receiver.to_account_info(), 
+    ctx.accounts.system_program.to_account_info(), 
+    fee_address_fee, 
+    Some(signer_seeds))?;
     ctx.accounts.add_loans_by_date(new_user_borrow, user_mushi, end_date)?;
     ctx.accounts.safety_check()?;
     Ok(())
@@ -155,18 +155,18 @@ pub fn borrow_more(ctx:Context<ACommon>, sol_amount:u64)->Result<()>{
         return Err(MushiProgramError::InvalidFeeAmount.into());
     }
     let signer_seeds:&[&[&[u8]]] = &[&[VAULT_SEED, &[*ctx.bumps.get("token_vault_owner").unwrap()]]];
-    trasnfer_sol(
+    transfer_sol(
         ctx.accounts.token_vault_owner.to_account_info(), 
         ctx.accounts.user.to_account_info(), 
         ctx.accounts.system_program.to_account_info(), 
         new_user_borrow - sol_fee, 
         Some(signer_seeds))?;
-    trasnfer_sol(
-        ctx.accounts.token_vault_owner.to_account_info(), 
-        ctx.accounts.fee_receiver.to_account_info(), 
-        ctx.accounts.system_program.to_account_info(), 
-        fee_address_fee, 
-        Some(signer_seeds))?;
+    transfer_sol(
+    ctx.accounts.token_vault_owner.to_account_info(), 
+    ctx.accounts.fee_receiver.to_account_info(), 
+    ctx.accounts.system_program.to_account_info(), 
+    fee_address_fee, 
+    Some(signer_seeds))?;
     ctx.accounts.add_loans_by_date(new_user_borrow, require_collateral_from_user, user_end_date)?;
     ctx.accounts.safety_check()?;
     Ok(())

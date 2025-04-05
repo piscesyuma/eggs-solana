@@ -2,7 +2,11 @@ use anchor_lang::prelude::*;
 use anchor_spl::{associated_token::AssociatedToken, token_interface};
 
 use crate::{
-    constants::VAULT_SEED, error::MushiProgramError, state::UserLoan, utils::{get_date_from_timestamp, get_date_string_from_timestamp}, DailyStats, GlobalStats, MainState
+    constants::{FEE_BASE_1000, VAULT_SEED}, 
+    error::MushiProgramError, 
+    state::{UserLoan, GlobalStats, MainState},
+    DailyStats, 
+    utils::{get_date_from_timestamp, get_date_string_from_timestamp, get_interest_fee}, 
 };
 
 #[derive(Accounts)]
@@ -185,5 +189,11 @@ impl<'info> ACommon<'info> {
         global_state.total_borrowed -= borrowed;
         global_state.total_collateral -= collateral;
         Ok(())
+    }
+    pub fn leverage_fee(&self, sol_amount: u64, number_of_days: u64) -> Result<u64> {
+        let buy_fee_leverage = self.main_state.buy_fee_leverage;
+        let mint_fee = sol_amount.checked_mul(buy_fee_leverage).unwrap().checked_div(FEE_BASE_1000).unwrap();
+        let interest = get_interest_fee(sol_amount, number_of_days);
+        Ok(mint_fee.checked_add(interest).unwrap())
     }
 }

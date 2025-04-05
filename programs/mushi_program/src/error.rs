@@ -41,4 +41,7 @@ pub enum MushiProgramError {
 
     #[msg("too small team fee")]
     TooSmallTeamFee,
+
+    #[msg("loan expired")]
+    LoanExpired,
 }

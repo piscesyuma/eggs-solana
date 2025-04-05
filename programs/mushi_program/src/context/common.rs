@@ -2,13 +2,11 @@ use anchor_lang::prelude::*;
 use anchor_spl::{associated_token::AssociatedToken, token_interface};
 
 use crate::{
-    constants::VAULT_SEED, 
-    error::MushiProgramError, 
-    utils::{get_date_from_timestamp, get_date_string_from_timestamp}, 
-    MainState, GlobalStats, DailyStats,
+    constants::VAULT_SEED, error::MushiProgramError, state::UserLoan, utils::{get_date_from_timestamp, get_date_string_from_timestamp}, DailyStats, GlobalStats, MainState
 };
 
 #[derive(Accounts)]
+#[instruction(date: i64)]
 pub struct ACommon<'info> {
     #[account(mut)]
     pub user: Signer<'info>,
@@ -46,6 +44,28 @@ pub struct ACommon<'info> {
         bump
     )]
     pub last_liquidation_date_state: Box<Account<'info, DailyStats>>,
+    #[account(
+        init_if_needed,
+        payer = user,
+        space = 8 + DailyStats::MAX_SIZE,
+        seeds = [
+            b"daily-stats".as_ref(),
+            get_date_string_from_timestamp(date).as_bytes()
+        ],
+        bump
+    )]
+    pub daily_state_by_date: Box<Account<'info, DailyStats>>,
+    #[account(
+        init_if_needed,
+        payer = user,
+        space = 8 + UserLoan::MAX_SIZE,
+        seeds = [
+            b"user-loan".as_ref(),
+            user.key().as_ref()
+        ],
+        bump
+    )]
+    pub user_loan: Box<Account<'info, UserLoan>>,
     #[account(
         mut,
         address=main_state.fee_receiver,
@@ -141,6 +161,29 @@ impl<'info> ACommon<'info> {
             return Err(MushiProgramError::SafetyCheckFailed.into());
         }
         self.global_state.last_price = new_price;
+        Ok(())
+    }
+    pub fn is_loan_expired(&self) -> Result<bool> {
+        let end_date = self.user_loan.end_date;
+        let current_date = Clock::get()?.unix_timestamp;
+        Ok(end_date < current_date)
+    }
+    pub fn add_loans_by_date(&mut self, borrowed: u64, collateral: u64, date: i64) -> Result<()> {
+        let daily_state = &mut self.daily_state_by_date;
+        let global_state = &mut self.global_state;
+        daily_state.borrowed += borrowed;
+        daily_state.collateral += collateral;
+        global_state.total_borrowed += borrowed;
+        global_state.total_collateral += collateral;
+        Ok(())
+    }
+    pub fn sub_loans_by_date(&mut self, borrowed: u64, collateral: u64, date: u64) -> Result<()> {
+        let daily_state = &mut self.daily_state_by_date;
+        let global_state = &mut self.global_state;
+        daily_state.borrowed -= borrowed;
+        daily_state.collateral -= collateral;
+        global_state.total_borrowed -= borrowed;
+        global_state.total_collateral -= collateral;
         Ok(())
     }
 }

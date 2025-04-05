@@ -18,7 +18,7 @@ use crate::{
 };
 use crate::context::common::ACommon;
 
-pub fn leverage(ctx:Context<ACommon>, sol_amount: u64,number_of_days: u64)->Result<()>{
+pub fn extend_loan(ctx:Context<ACommon>, sol_amount: u64,number_of_days: u64)->Result<()>{
     let user_loan = & ctx.accounts.user_loan;
     let old_end_date = user_loan.end_date;
     let _number_of_days = user_loan.number_of_days;

@@ -578,6 +578,7 @@ export class MushiProgramRpc {
           associatedTokenProgram,
           tokenProgram,
           systemProgram,
+          referral: null,
         })
         .instruction();
       

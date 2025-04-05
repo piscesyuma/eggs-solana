@@ -2,10 +2,7 @@ use anchor_lang::prelude::*;
 use anchor_spl::{associated_token::AssociatedToken, token_interface};
 
 use crate::{
-    constants::VAULT_SEED, 
-    error::MushiProgramError, 
-    utils::{get_date_from_timestamp, get_date_string_from_timestamp}, 
-    MainState, GlobalStats, DailyStats,
+    constants::VAULT_SEED, error::MushiProgramError, utils::{get_date_from_timestamp, get_date_string_from_timestamp}, DailyStats, GlobalStats, MainState
 };
 
 #[derive(Accounts)]
@@ -69,6 +66,10 @@ pub struct ACommon<'info> {
         bump,
     )]
     pub token_vault_owner: SystemAccount<'info>,
+    
+    #[account(mut)]
+    pub referral: Option<UncheckedAccount<'info>>,
+    
     #[account(
         mut,
         token::mint = token,

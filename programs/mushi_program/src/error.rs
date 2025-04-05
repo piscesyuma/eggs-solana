@@ -41,4 +41,10 @@ pub enum MushiProgramError {
 
     #[msg("too small team fee")]
     TooSmallTeamFee,
+
+    #[msg("referral not found")]
+    ReferralNotFound,
+
+    #[msg("invalid referral account")]
+    InvalidReferralAccount,
 }

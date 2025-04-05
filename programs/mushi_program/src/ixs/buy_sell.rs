@@ -60,6 +60,7 @@ pub fn buy(ctx:Context<ACommon>, sol_amount:u64) -> Result<()> {
     Ok(())
 }
 
+#[derive(AnchorSerialize, AnchorDeserialize, Debug, Clone)]
 pub struct BuyWithReferralInput {
     pub sol_amount: u64,
     pub referral_pubkey: Pubkey,

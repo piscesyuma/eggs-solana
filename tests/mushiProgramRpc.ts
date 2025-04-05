@@ -434,6 +434,82 @@ export class MushiProgramRpc {
     }
   }
 
+  async buy_with_referral(
+    solAmount: number,
+    referralPubkey: web3.PublicKey
+  ): Promise<SendTxResult> {
+    try {
+      const admin = this.provider.publicKey;
+      const globalInfo = await this.getGlobalInfo();
+      if (!globalInfo) throw "Failed to get global state info";
+      const { token } = globalInfo;
+      const mainStateInfo = await this.getMainStateInfo();
+      if (!mainStateInfo) throw "Failed to get main state info";
+      const { feeReceiver } = mainStateInfo;
+
+      // Get the global state directly to access last_liquidation_date
+      const globalState = await this.program.account.globalStats.fetch(this.globalState);
+      const lastLiquidationDate = globalState.lastLiquidationDate;
+
+      const rawSolAmount = Math.trunc(solAmount * SOL_DECIMALS_HELPER);
+      const user = this.provider.publicKey;
+      const userAta = getAssociatedTokenAddressSync(token, user);
+      const tokenVault = getAssociatedTokenAddressSync(
+        token,
+        this.vaultOwner,
+        true
+      );
+      
+      // Calculate the midnight timestamp in seconds (Unix timestamp) as the program does
+      const now = Math.floor(Date.now() / 1000); // Current time in seconds
+      const midnightTimestamp = now - (now % SECONDS_IN_A_DAY);
+      
+      // Get the date strings correctly formatted
+      // const currentDateString = getDateStringFromTimestamp(midnightTimestamp);
+      const liquidationDateString = getDateStringFromTimestamp(Number(lastLiquidationDate));
+      
+      const ix = await this.program.methods
+        .buyWithReferral({
+          solAmount: new BN(rawSolAmount),
+          referralPubkey: referralPubkey
+        })
+        .accounts({
+          user,
+          mainState: this.mainState,
+          globalState: this.globalState,
+          dailyState: web3.PublicKey.findProgramAddressSync(
+            [Buffer.from("daily-stats"), Buffer.from(getCurrentDateString())],
+            this.programId
+          )[0],
+          lastLiquidationDateState: web3.PublicKey.findProgramAddressSync(
+            [Buffer.from("daily-stats"), Buffer.from(liquidationDateString)],
+            this.programId
+          )[0],
+          feeReceiver,
+          token,
+          userAta,
+          tokenVaultOwner: this.vaultOwner,
+          tokenVault,
+          associatedTokenProgram,
+          tokenProgram,
+          systemProgram,
+        })
+        .instruction();
+      
+      const ixs = [
+        web3.ComputeBudgetProgram.setComputeUnitLimit({ units: 150_000 }),
+        ix,
+      ];
+      
+      const txSignature = await this.sendTx(ixs);
+      if (!txSignature) throw "failed to send tx";
+      return { isPass: true, info: { txSignature } };
+    } catch (buyError) {
+      log({ buyError });
+      return { isPass: false, info: "failed to process input" };
+    }
+  }
+
   async sell(
     tokenAmount: number,
     debug: boolean = false

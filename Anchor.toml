@@ -15,10 +15,11 @@ cluster = "Localnet"
 wallet = "/root/.config/solana/id.json"
 
 [scripts]
-buy = "yarn run ts-mocha -p ./tsconfig.json -t 1000000 tests/**/buy.ts"
 init = "yarn run ts-mocha -p ./tsconfig.json -t 1000000 tests/**/init.ts"
-sell = "yarn run ts-mocha -p ./tsconfig.json -t 1000000 tests/**/sell.ts"
 start = "yarn run ts-mocha -p ./tsconfig.json -t 1000000 tests/**/start.ts"
+buy = "yarn run ts-mocha -p ./tsconfig.json -t 1000000 tests/**/buy.ts"
+buyReferral = "yarn run ts-mocha -p ./tsconfig.json -t 1000000 tests/**/buy_referral.ts"
+sell = "yarn run ts-mocha -p ./tsconfig.json -t 1000000 tests/**/sell.ts"
 getStats = "yarn run ts-mocha -p ./tsconfig.json -t 1000000 tests/**/getStats.ts"
 test = "yarn run ts-mocha -p ./tsconfig.json -t 1000000 tests/**/*.ts"
 updateAdmin = "yarn run ts-mocha -p ./tsconfig.json -t 1000000 tests/**/updateAdmin.ts"

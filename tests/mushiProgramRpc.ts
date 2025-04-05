@@ -417,6 +417,7 @@ export class MushiProgramRpc {
           associatedTokenProgram,
           tokenProgram,
           systemProgram,
+          referral: null,
         })
         .instruction();
       
@@ -493,6 +494,7 @@ export class MushiProgramRpc {
           associatedTokenProgram,
           tokenProgram,
           systemProgram,
+          referral: referralPubkey,
         })
         .instruction();
       

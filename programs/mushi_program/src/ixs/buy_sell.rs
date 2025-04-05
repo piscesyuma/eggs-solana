@@ -68,7 +68,8 @@ pub struct BuyWithReferralInput {
 
 pub fn buy_with_referral(ctx:Context<ACommon>,  input: BuyWithReferralInput ) -> Result<()> {
     let sol_amount = input.sol_amount;
-    let referral_pubkey = input.referral_pubkey;
+    let referral = &mut ctx.accounts.referral;
+    
 
     let mushi = ctx.accounts.sol_to_mushi(sol_amount)?;
     let global_state =&mut ctx.accounts.global_state;
@@ -85,6 +86,16 @@ pub fn buy_with_referral(ctx:Context<ACommon>,  input: BuyWithReferralInput ) ->
     if !is_started {
         return Err(MushiProgramError::NotStarted.into());
     }
+
+    if ctx.accounts.referral.is_none() {
+        return Err(MushiProgramError::ReferralNotFound.into());
+    }
+    
+    let referral_account = ctx.accounts.referral.as_ref().unwrap();
+    if referral_account.key() != input.referral_pubkey {
+        return Err(MushiProgramError::InvalidReferralAccount.into());
+    }
+
     // minting tokens
     mint_to_tokens_by_main_state(
         ctx.accounts.token.to_account_info(), 
@@ -117,11 +128,13 @@ pub fn buy_with_referral(ctx:Context<ACommon>,  input: BuyWithReferralInput ) ->
     fee_treasury, 
     None)?;
     
-    trasnfer_sol_to_pubkey(
+    trasnfer_sol(
         ctx.accounts.user.to_account_info(), 
-    &referral_pubkey, 
-    ctx.accounts.system_program.to_account_info(), 
-    fee_referral)?;
+        ctx.accounts.referral.as_ref().unwrap().to_account_info(), 
+        ctx.accounts.system_program.to_account_info(), 
+        fee_referral, 
+        None
+    )?;
     
     trasnfer_sol(
         ctx.accounts.user.to_account_info(), 

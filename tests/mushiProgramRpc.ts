@@ -7,9 +7,10 @@ import {
   TOKEN_PROGRAM_ID,
 } from "@solana/spl-token";
 
-const ONE_BASIS_POINTS = 100_000;
+const ONE_BASIS_POINTS = 1;  //100_000;
 const Seeds = {
   mainState: Buffer.from("main_state"),
+  globalState: Buffer.from("global_stats"),
   vault: Buffer.from("vault"),
 };
 const log = console.log;
@@ -17,8 +18,9 @@ export type Result<T, E = string> =
   | { isPass: true; info: T }
   | { isPass: false; info: E };
 export type SendTxResult = Result<{ txSignature: string }, string>;
-export const TOKEN_DECIMALS_HELPER = 1_000_000; // 6 decimals
+export const TOKEN_DECIMALS_HELPER = 1_000_000_000; // 9 decimals
 export const SOL_DECIMALS_HELPER = 1_000_000_000; // 9 decimals
+const SECONDS_IN_A_DAY = 86400;
 const associatedTokenProgram = ASSOCIATED_TOKEN_PROGRAM_ID;
 const mplProgram = new web3.PublicKey(
   "metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s"
@@ -32,17 +34,87 @@ export async function sleep(ms: number) {
 }
 export type MainStateInfo = {
   admin: web3.PublicKey;
-  feeOnBuy: number;
   feeReceiver: web3.PublicKey;
-  token: web3.PublicKey;
-  initOn: number;
+  sellFee: number;
+  buyFee: number;
+  buyFeeLeverage: number;
 };
+export type GlobalStateInfo = {
+  tokenSupply: number;
+  token: web3.PublicKey;
+  started: boolean;
+};
+
+/**
+ * Converts a Unix timestamp to YYYY-MM-DD format
+ * This is a direct port of the Rust implementation to ensure compatibility
+ * @param timestamp Unix timestamp in seconds
+ * @returns Formatted date string YYYY-MM-DD
+ */
+export function getDateStringFromTimestamp(timestamp: number): string {
+  // Normalize to midnight
+  const normalizedTimestamp = timestamp - (timestamp % SECONDS_IN_A_DAY);
+  
+  // Calculate days since Unix epoch (1970-01-01)
+  const daysSinceEpoch = Math.floor(normalizedTimestamp / SECONDS_IN_A_DAY);
+  
+  // Initialize with epoch year
+  let year = 1970;
+  let daysRemaining = daysSinceEpoch;
+  
+  // Advance through years
+  while (true) {
+    const daysInYear = isLeapYear(year) ? 366 : 365;
+    if (daysRemaining < daysInYear) {
+      break;
+    }
+    daysRemaining -= daysInYear;
+    year++;
+  }
+  
+  // Determine month and day
+  const daysInMonths = isLeapYear(year) 
+    ? [31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
+    : [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+  
+  let month = 0;
+  for (const daysInMonth of daysInMonths) {
+    if (daysRemaining < daysInMonth) {
+      break;
+    }
+    daysRemaining -= daysInMonth;
+    month++;
+  }
+  
+  // Month is 0-based in our calculation, but we want 1-based
+  month++;
+  // Day is 0-based, need to add 1
+  const day = daysRemaining + 1;
+  
+  // Format as YYYY-MM-DD
+  return `${year.toString().padStart(4, '0')}-${month.toString().padStart(2, '0')}-${day.toString().padStart(2, '0')}`;
+}
+
+// Helper function to determine if a year is a leap year (identical to Rust implementation)
+function isLeapYear(year: number): boolean {
+  return (year % 4 === 0) && (year % 100 !== 0 || year % 400 === 0);
+}
+
+/**
+ * Gets the current date at midnight in YYYY-MM-DD format
+ * @returns Formatted date string YYYY-MM-DD
+ */
+export function getCurrentDateString(): string {
+  const now = Math.floor(Date.now() / 1000);
+  return getDateStringFromTimestamp(now);
+}
 
 export class MushiProgramRpc {
   private program: Program<MushiProgram>;
   private connection: web3.Connection;
   private programId: web3.PublicKey;
   private mainState: web3.PublicKey;
+  private globalState: web3.PublicKey;
   private vaultOwner: web3.PublicKey;
   private provider: AnchorProvider;
 
@@ -64,6 +136,10 @@ export class MushiProgramRpc {
     this.program = new Program(IDL, programId, provider);
     this.mainState = web3.PublicKey.findProgramAddressSync(
       [Seeds.mainState],
+      this.programId
+    )[0];
+    this.globalState = web3.PublicKey.findProgramAddressSync(
+      [Seeds.globalState],
       this.programId
     )[0];
     this.vaultOwner = web3.PublicKey.findProgramAddressSync(
@@ -136,13 +212,14 @@ export class MushiProgramRpc {
 
   async getMainStateInfo(): Promise<MainStateInfo | null> {
     try {
-      const mainStateData = await this.program.account.mainState.fetch(this.mainState);
+      const { admin, feeReceiver, sellFee, buyFee, buyFeeLeverage } =
+        await this.program.account.mainState.fetch(this.mainState);
       return {
-        admin: mainStateData.admin,
-        token: mainStateData.token,
-        initOn: Number(mainStateData.lastLiquidationDate?.toString() || "0"),
-        feeOnBuy: Number(mainStateData.buyFee?.toString() || "0") / ONE_BASIS_POINTS,
-        feeReceiver: mainStateData.feeReceiver,
+        admin,
+        sellFee: Number(sellFee.toString()) / ONE_BASIS_POINTS,
+        buyFee: Number(buyFee.toString()) / ONE_BASIS_POINTS,
+        buyFeeLeverage: Number(buyFeeLeverage.toString()) / ONE_BASIS_POINTS,
+        feeReceiver,
       };
     } catch (getMainStateInfoError) {
       log({ getMainStateInfoError });
@@ -150,16 +227,65 @@ export class MushiProgramRpc {
     }
   }
 
+  async getGlobalInfo(): Promise<GlobalStateInfo | null> {
+    try {
+      const { tokenSupply, token, started } =
+        await this.program.account.globalStats.fetch(this.globalState);
+      return {
+        tokenSupply: Number(tokenSupply.toString()),
+        token,
+        started,
+      };
+    } catch (getGlobalStateInfoError) {
+      log({ getGlobalStateInfoError });
+      return null;
+    }
+  }
+
   async initialize(input: {
+    feeReceiver: web3.PublicKey;
+    sellFee: number;
+    buyFee: number;
+    buyFeeLeverage: number;
+  }): Promise<SendTxResult> {
+    try {
+      log(Math.trunc(input.sellFee * ONE_BASIS_POINTS));
+      const admin = this.provider.publicKey;
+      const ix = await this.program.methods
+        .initMainState({
+          feeReceiver: input.feeReceiver,
+          sellFee: new BN(Math.trunc(input.sellFee * ONE_BASIS_POINTS)),
+          buyFee: new BN(Math.trunc(input.buyFee * ONE_BASIS_POINTS)),
+          buyFeeLeverage: new BN(Math.trunc(input.buyFeeLeverage * ONE_BASIS_POINTS)),
+        })
+        .accounts({
+          admin,
+          mainState: this.mainState,
+          globalState: this.globalState,
+          systemProgram,
+        })
+        .instruction();
+      const ixs = [
+        web3.ComputeBudgetProgram.setComputeUnitLimit({ units: 300_000 }),
+        ix,
+      ];
+      const txSignature = await this.sendTx(ixs, []);
+      if (!txSignature) throw "failed to send tx";
+      return { isPass: true, info: { txSignature } };
+    } catch (initializeError) {
+      log({ initializeError });
+      return { isPass: false, info: "failed to process the input" };
+    }
+  }
+
+  async start(input: {
     tokenName: string;
     tokenSymbol: string;
     tokenUri: string;
     solAmount: number;
-    feeReceiver: web3.PublicKey;
-    feeOnBuy: number;
   }): Promise<SendTxResult> {
     try {
-      const { tokenName, tokenSymbol, tokenUri } = input;
+      const { tokenName, tokenSymbol, tokenUri, solAmount } = input;
       const tokenKp = web3.Keypair.generate();
       const token = tokenKp.publicKey;
       const admin = this.provider.publicKey;
@@ -174,16 +300,18 @@ export class MushiProgramRpc {
       )[0];
 
       const ix = await this.program.methods
-        .initialize({
-          feeReceiver: input.feeReceiver,
+        .start({
+          solAmount: new BN(
+            Math.trunc(solAmount * SOL_DECIMALS_HELPER)
+          ),
           tokenName,
           tokenSymbol,
           tokenUri,
-          solAmount: new BN(input.solAmount * SOL_DECIMALS_HELPER),
         })
         .accounts({
           admin,
           mainState: this.mainState,
+          globalState: this.globalState,
           tokenVault: tokenVault,
           tokenVaultOwner: this.vaultOwner,
           associatedTokenProgram,
@@ -208,42 +336,48 @@ export class MushiProgramRpc {
     }
   }
 
-  async updateMainState(input: {
-    feeReceiver?: web3.PublicKey;
-    admin?: web3.PublicKey;
-  }): Promise<SendTxResult> {
-    try {
-      const admin = this.provider.publicKey;
-      const feeReceiver = input.feeReceiver ?? null;
-      const newAdmin = input.admin ?? null;
-      const ix = await this.program.methods
-        .updateMainState({
-          feeReceiver, admin: newAdmin,
-          buyFee: new BN(975),
-          sellFee: new BN(975),
-          buyFeeLeverage: new BN(10),
-        })
-        .accounts({ admin, mainState: this.mainState })
-        .instruction();
-      const ixs = [
-        web3.ComputeBudgetProgram.setComputeUnitLimit({ units: 100_000 }),
-        ix,
-      ];
-      const updateTxRes = await this.sendTx(ixs);
-      if (!updateTxRes) return { isPass: false, info: "failed to send tx" };
-      return { isPass: true, info: { txSignature: updateTxRes } };
-    } catch (updateMainStateError) {
-      log({ updateMainStateError });
-      return { isPass: false, info: "failed to process input" };
-    }
-  }
+  // async updateMainState(input: {
+  //   feeReceiver?: web3.PublicKey;
+  //   admin?: web3.PublicKey;
+  // }): Promise<SendTxResult> {
+  //   try {
+  //     const admin = this.provider.publicKey;
+  //     const feeReceiver = input.feeReceiver ?? null;
+  //     const newAdmin = input.admin ?? null;
+  //     const ix = await this.program.methods
+  //       .updateMainState({ feeReceiver, admin: newAdmin })
+  //       .accounts({ admin, mainState: this.mainState })
+  //       .instruction();
+  //     const ixs = [
+  //       web3.ComputeBudgetProgram.setComputeUnitLimit({ units: 100_000 }),
+  //       ix,
+  //     ];
+  //     const updateTxRes = await this.sendTx(ixs);
+  //     if (!updateTxRes) return { isPass: false, info: "failed to send tx" };
+  //     return { isPass: true, info: { txSignature: updateTxRes } };
+  //   } catch (updateMainStateError) {
+  //     log({ updateMainStateError });
+  //     return { isPass: false, info: "failed to process input" };
+  //   }
+  // }
 
   async buy(
     solAmount: number,
-    mainStateInfo: MainStateInfo
+    debug: boolean = false
   ): Promise<SendTxResult> {
     try {
-      const { token, feeReceiver } = mainStateInfo;
+      const admin = this.provider.publicKey;
+      const globalInfo = await this.getGlobalInfo();
+      if (!globalInfo) throw "Failed to get global state info";
+      const { token } = globalInfo;
+      const mainStateInfo = await this.getMainStateInfo();
+      if (!mainStateInfo) throw "Failed to get main state info";
+      const { feeReceiver } = mainStateInfo;
+
+      // Get the global state directly to access last_liquidation_date
+      const globalState = await this.program.account.globalStats.fetch(this.globalState);
+      const lastLiquidationDate = globalState.lastLiquidationDate;
+
       const rawSolAmount = Math.trunc(solAmount * SOL_DECIMALS_HELPER);
       const user = this.provider.publicKey;
       const userAta = getAssociatedTokenAddressSync(token, user);
@@ -252,28 +386,124 @@ export class MushiProgramRpc {
         this.vaultOwner,
         true
       );
+      
+      // Calculate the midnight timestamp in seconds (Unix timestamp) as the program does
+      const now = Math.floor(Date.now() / 1000); // Current time in seconds
+      const midnightTimestamp = now - (now % SECONDS_IN_A_DAY);
+      
+      // Get the date strings correctly formatted
+      // const currentDateString = getDateStringFromTimestamp(midnightTimestamp);
+      const liquidationDateString = getDateStringFromTimestamp(Number(lastLiquidationDate));
+      
       const ix = await this.program.methods
         .buy(new BN(rawSolAmount))
         .accounts({
-          mainState: this.mainState,
           user,
-          userAta,
-          associatedTokenProgram,
-          token,
-          tokenProgram,
-          tokenVault,
-          tokenVaultOwner: this.vaultOwner,
+          mainState: this.mainState,
+          globalState: this.globalState,
+          dailyState: web3.PublicKey.findProgramAddressSync(
+            [Buffer.from("daily-stats"), Buffer.from(getCurrentDateString())],
+            this.programId
+          )[0],
+          lastLiquidationDateState: web3.PublicKey.findProgramAddressSync(
+            [Buffer.from("daily-stats"), Buffer.from(liquidationDateString)],
+            this.programId
+          )[0],
           feeReceiver,
+          token,
+          userAta,
+          tokenVaultOwner: this.vaultOwner,
+          tokenVault,
+          associatedTokenProgram,
+          tokenProgram,
           systemProgram,
         })
         .instruction();
+      
       const ixs = [
         web3.ComputeBudgetProgram.setComputeUnitLimit({ units: 150_000 }),
         ix,
       ];
-      const txRes = await this.sendTx(ixs);
-      if (!txRes) throw "failed to send tx";
-      return { isPass: true, info: { txSignature: txRes } };
+      
+      const txSignature = await this.sendTx(ixs);
+      if (!txSignature) throw "failed to send tx";
+      return { isPass: true, info: { txSignature } };
+    } catch (buyError) {
+      log({ buyError });
+      return { isPass: false, info: "failed to process input" };
+    }
+  }
+
+  async buy_with_referral(
+    solAmount: number,
+    referralPubkey: web3.PublicKey
+  ): Promise<SendTxResult> {
+    try {
+      const admin = this.provider.publicKey;
+      const globalInfo = await this.getGlobalInfo();
+      if (!globalInfo) throw "Failed to get global state info";
+      const { token } = globalInfo;
+      const mainStateInfo = await this.getMainStateInfo();
+      if (!mainStateInfo) throw "Failed to get main state info";
+      const { feeReceiver } = mainStateInfo;
+
+      // Get the global state directly to access last_liquidation_date
+      const globalState = await this.program.account.globalStats.fetch(this.globalState);
+      const lastLiquidationDate = globalState.lastLiquidationDate;
+
+      const rawSolAmount = Math.trunc(solAmount * SOL_DECIMALS_HELPER);
+      const user = this.provider.publicKey;
+      const userAta = getAssociatedTokenAddressSync(token, user);
+      const tokenVault = getAssociatedTokenAddressSync(
+        token,
+        this.vaultOwner,
+        true
+      );
+      
+      // Calculate the midnight timestamp in seconds (Unix timestamp) as the program does
+      const now = Math.floor(Date.now() / 1000); // Current time in seconds
+      const midnightTimestamp = now - (now % SECONDS_IN_A_DAY);
+      
+      // Get the date strings correctly formatted
+      // const currentDateString = getDateStringFromTimestamp(midnightTimestamp);
+      const liquidationDateString = getDateStringFromTimestamp(Number(lastLiquidationDate));
+      
+      const ix = await this.program.methods
+        .buyWithReferral({
+          solAmount: new BN(rawSolAmount),
+          referralPubkey: referralPubkey
+        })
+        .accounts({
+          user,
+          mainState: this.mainState,
+          globalState: this.globalState,
+          dailyState: web3.PublicKey.findProgramAddressSync(
+            [Buffer.from("daily-stats"), Buffer.from(getCurrentDateString())],
+            this.programId
+          )[0],
+          lastLiquidationDateState: web3.PublicKey.findProgramAddressSync(
+            [Buffer.from("daily-stats"), Buffer.from(liquidationDateString)],
+            this.programId
+          )[0],
+          feeReceiver,
+          token,
+          userAta,
+          tokenVaultOwner: this.vaultOwner,
+          tokenVault,
+          associatedTokenProgram,
+          tokenProgram,
+          systemProgram,
+        })
+        .instruction();
+      
+      const ixs = [
+        web3.ComputeBudgetProgram.setComputeUnitLimit({ units: 150_000 }),
+        ix,
+      ];
+      
+      const txSignature = await this.sendTx(ixs);
+      if (!txSignature) throw "failed to send tx";
+      return { isPass: true, info: { txSignature } };
     } catch (buyError) {
       log({ buyError });
       return { isPass: false, info: "failed to process input" };
@@ -282,10 +512,21 @@ export class MushiProgramRpc {
 
   async sell(
     tokenAmount: number,
-    mainStateInfo: MainStateInfo
+    debug: boolean = false
   ): Promise<SendTxResult> {
     try {
-      const { token, feeReceiver } = mainStateInfo;
+      const admin = this.provider.publicKey;
+      const globalInfo = await this.getGlobalInfo();
+      if (!globalInfo) throw "Failed to get global state info";
+      const { token } = globalInfo;
+      const mainStateInfo = await this.getMainStateInfo();
+      if (!mainStateInfo) throw "Failed to get main state info";
+      const { feeReceiver } = mainStateInfo;
+
+      // Get the global state directly to access last_liquidation_date
+      const globalState = await this.program.account.globalStats.fetch(this.globalState);
+      const lastLiquidationDate = globalState.lastLiquidationDate;
+
       const rawTokenAmount = Math.trunc(tokenAmount * TOKEN_DECIMALS_HELPER);
       const user = this.provider.publicKey;
       const userAta = getAssociatedTokenAddressSync(token, user);
@@ -294,28 +535,58 @@ export class MushiProgramRpc {
         this.vaultOwner,
         true
       );
+      
+      // Calculate the midnight timestamp in seconds (Unix timestamp) as the program does
+      const now = Math.floor(Date.now() / 1000); // Current time in seconds
+      const midnightTimestamp = now - (now % SECONDS_IN_A_DAY);
+      
+      // Get the date strings correctly formatted
+      const currentDateString = getDateStringFromTimestamp(midnightTimestamp);
+      const liquidationDateString = getDateStringFromTimestamp(Number(lastLiquidationDate));
+      
+      // For debugging - print the date strings
+      if (debug) {
+        log({
+          currentDate: currentDateString,
+          liquidationDate: liquidationDateString,
+          currentTimestamp: midnightTimestamp, 
+          liquidationTimestamp: Number(lastLiquidationDate)
+        });
+      }
+      
       const ix = await this.program.methods
         .sell(new BN(rawTokenAmount))
         .accounts({
-          mainState: this.mainState,
           user,
-          userAta,
-          associatedTokenProgram,
-          token,
-          tokenProgram,
-          tokenVault,
-          tokenVaultOwner: this.vaultOwner,
+          mainState: this.mainState,
+          globalState: this.globalState,
+          dailyState: web3.PublicKey.findProgramAddressSync(
+            [Buffer.from("daily-stats"), Buffer.from(currentDateString)],
+            this.programId
+          )[0],
+          lastLiquidationDateState: web3.PublicKey.findProgramAddressSync(
+            [Buffer.from("daily-stats"), Buffer.from(liquidationDateString)],
+            this.programId
+          )[0],
           feeReceiver,
+          token,
+          userAta,
+          tokenVaultOwner: this.vaultOwner,
+          tokenVault,
+          associatedTokenProgram,
+          tokenProgram,
           systemProgram,
         })
         .instruction();
+      
       const ixs = [
         web3.ComputeBudgetProgram.setComputeUnitLimit({ units: 150_000 }),
         ix,
       ];
-      const txRes = await this.sendTx(ixs);
-      if (!txRes) throw "failed to send tx";
-      return { isPass: true, info: { txSignature: txRes } };
+      
+      const txSignature = await this.sendTx(ixs);
+      if (!txSignature) throw "failed to send tx";
+      return { isPass: true, info: { txSignature } };
     } catch (sellError) {
       log({ sellError });
       return { isPass: false, info: "failed to process input" };

@@ -6,8 +6,8 @@ use crate::{error::MushiProgramError, state::MainState};
 pub struct UpdateMainStateInput {
     admin: Option<Pubkey>,
     fee_receiver: Option<Pubkey>,
-    buy_fee: Option<u64>,
     sell_fee: Option<u64>,
+    buy_fee: Option<u64>,
     buy_fee_leverage: Option<u64>,
 }
 

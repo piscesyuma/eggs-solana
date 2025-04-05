@@ -39,7 +39,7 @@ describe("mushi_program", () => {
       });
       log({ initRes: initRes.info });
       if (!initRes.isPass) throw "failed to init mainstate";
-      await sleep(7_000);
+      await sleep(15_000);
       const _info = await connectivity.getMainStateInfo();
       if (!_info) throw "failed to get mainstate info";
       mainStateInfo = _info;

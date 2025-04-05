@@ -12,7 +12,7 @@ describe("mushi_program_sell", () => {
   const connection = provider.connection;
   const rpc = connection.rpcEndpoint;
   const programId = new web3.PublicKey(
-    "7xpZCcLQUHgSG3Mo9PvP7NfaHRjqqYzX1GuoFejhEB3K"
+    "HF5x1bCgynzEnBL7ATMFYPNFjBaqfxgMASyUJL2ud6Xi"
   );
   let mainStateInfo: MainStateInfo | null = null;
   let globalInfo: GlobalStateInfo | null = null;
@@ -24,7 +24,7 @@ describe("mushi_program_sell", () => {
   const user = provider.publicKey;
 
   // Parameters for the sell operation
-  const tokenAmount = 10; // Amount of tokens to sell for SOL
+  const tokenAmount = 1000000; // Amount of tokens to sell for SOL
 
   it("Get initial state info", async () => {
     mainStateInfo = await connectivity.getMainStateInfo();

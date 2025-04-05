@@ -24,7 +24,7 @@ describe("mushi_program_buy", () => {
   const user = provider.publicKey;
 
   // Parameters for the buy operation
-  const solAmount = 0.01; // Amount of SOL to buy tokens with
+  const solAmount = 0.1; // Amount of SOL to buy tokens with
 
   it("Get initial state info", async () => {
     mainStateInfo = await connectivity.getMainStateInfo();
@@ -56,7 +56,7 @@ describe("mushi_program_buy", () => {
     log({ buyRes: buyRes.info });
 
     // Wait for the transaction to be processed
-    await sleep(7_000);
+    await sleep(10_000);
     
     // Verify the operation by getting updated state
     const updatedGlobalInfo = await connectivity.getGlobalInfo();

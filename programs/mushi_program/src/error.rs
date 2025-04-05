@@ -44,4 +44,7 @@ pub enum MushiProgramError {
 
     #[msg("loan expired")]
     LoanExpired,
+
+    #[msg("invalid collateral amount")]
+    InvalidCollateralAmount,
 }

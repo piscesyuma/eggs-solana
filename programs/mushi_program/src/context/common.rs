@@ -93,6 +93,10 @@ pub struct ACommon<'info> {
         bump,
     )]
     pub token_vault_owner: SystemAccount<'info>,
+    
+    #[account(mut)]
+    pub referral: Option<UncheckedAccount<'info>>,
+    
     #[account(
         mut,
         token::mint = token,

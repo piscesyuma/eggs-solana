@@ -50,4 +50,9 @@ pub enum MushiProgramError {
 
     #[msg("remove collateral failed")]
     RemoveCollateralFailed,
+    #[msg("referral not found")]
+    ReferralNotFound,
+
+    #[msg("invalid referral account")]
+    InvalidReferralAccount,
 }

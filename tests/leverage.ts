@@ -24,7 +24,7 @@ describe("mushi_program_leverage", () => {
   const user = provider.publicKey;
 
   // Parameters for the leverage operation
-  const solAmount = 1; // Amount of SOL to leverage
+  const solAmount = 0.1; // Amount of SOL to leverage
   const numberOfDays = 7; // Loan duration in days
 
   it("Get initial state info", async () => {

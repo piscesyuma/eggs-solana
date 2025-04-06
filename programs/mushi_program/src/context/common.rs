@@ -142,7 +142,7 @@ impl<'info> ACommon<'info> {
         let backing = self.get_backing()?;
         let new_price: u64 = (backing as u128).checked_mul(LAMPORTS_PER_SOL as u128).unwrap()
         .checked_div(self.global_state.token_supply as u128).unwrap() as u64;
-        let _total_collateral = self.token_vault_owner.lamports();
+        let _total_collateral = self.token_vault.amount;
 
         require!(
             _total_collateral >= self.global_state.total_collateral,
@@ -194,7 +194,7 @@ pub struct ACommonExtLoan<'info> {
         space = 8 + DailyStats::MAX_SIZE,
         seeds = [
             b"daily-stats".as_ref(),
-            get_date_string_from_timestamp(Clock::get()?.unix_timestamp + number_of_days * SECONDS_IN_A_DAY).as_bytes()
+            get_date_string_from_timestamp(Clock::get()?.unix_timestamp + (number_of_days+1) * SECONDS_IN_A_DAY).as_bytes()
         ],
         bump
     )]
@@ -238,7 +238,7 @@ pub struct ACommonExtLoan2<'info> {
         space = 8 + DailyStats::MAX_SIZE,
         seeds = [
             b"daily-stats".as_ref(),
-            get_date_string_from_timestamp(Clock::get()?.unix_timestamp + number_of_days * SECONDS_IN_A_DAY).as_bytes()
+            get_date_string_from_timestamp(Clock::get()?.unix_timestamp + (number_of_days+1) * SECONDS_IN_A_DAY).as_bytes()
         ],
         bump
     )]

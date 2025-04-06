@@ -2,7 +2,7 @@ import * as anchor from "@coral-xyz/anchor";
 import { web3 } from "@coral-xyz/anchor";
 import { Program } from "@coral-xyz/anchor";
 import { MushiProgram } from "../target/types/mushi_program";
-import { MainStateInfo, GlobalStateInfo, sleep, MushiProgramRpc, getCurrentDateString } from "./mushiProgramRpc";
+import { MainStateInfo, GlobalStateInfo, sleep, MushiProgramRpc, getCurrentDateString, UserLoanInfo } from "./mushiProgramRpc";
 
 const log = console.log;
 describe("mushi_program_getStats", () => {
@@ -16,6 +16,8 @@ describe("mushi_program_getStats", () => {
   );
   let mainStateInfo: MainStateInfo | null = null;
   let globalInfo: GlobalStateInfo | null = null;
+  let userLoanInfo: UserLoanInfo | null = null;
+  
   const connectivity = new MushiProgramRpc({
     rpc,
     wallet: provider.wallet,
@@ -35,6 +37,10 @@ describe("mushi_program_getStats", () => {
     log({ globalInfo });
 
     if (!globalInfo) throw "Failed to get global state info";
+
+    userLoanInfo = await connectivity.getUserLoanInfo(user);
+    if (!userLoanInfo) throw "Failed to get user loan info";
+    log({ userLoanInfo });
 
     // Check if the protocol has been started
     if (!globalInfo.started) {

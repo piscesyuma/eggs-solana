@@ -263,6 +263,7 @@ export class MushiProgramRpc {
       )[0];
 
       const userLoanData = await this.program.account.userLoan.fetch(userLoanAddress);
+      log({ userLoanData: userLoanData, userEndDate: getDateStringFromTimestamp(Number(userLoanData.endDate.toString())) });
       return {
         endDate: userLoanData.endDate.toString(),
         borrowed: Number(userLoanData.borrowed.toString()),
@@ -674,7 +675,7 @@ export class MushiProgramRpc {
       // Get the date strings correctly formatted
       const currentDateString = getDateStringFromTimestamp(midnightTimestamp);
       const liquidationDateString = getDateStringFromTimestamp(Number(lastLiquidationDate));
-      const endDate = now + (numberOfDays * SECONDS_IN_A_DAY);
+      const endDate = now + (numberOfDays * SECONDS_IN_A_DAY) + SECONDS_IN_A_DAY;
       const endDateString = getDateStringFromTimestamp(endDate);
       
       // For debugging - print the date strings
@@ -775,7 +776,7 @@ export class MushiProgramRpc {
       const currentDateString = getDateStringFromTimestamp(midnightTimestamp);
       const liquidationDateString = getDateStringFromTimestamp(Number(lastLiquidationDate));
       
-      const endDate = now + (numberOfDays * SECONDS_IN_A_DAY);
+      const endDate = now + (numberOfDays * SECONDS_IN_A_DAY) + SECONDS_IN_A_DAY;
       const endDateString = getDateStringFromTimestamp(endDate);
 
       // For debugging - print the date strings
@@ -789,7 +790,7 @@ export class MushiProgramRpc {
       }
       
       const ix = await this.program.methods
-        .leverage(new BN(rawSolAmount), new BN(numberOfDays))
+        .leverage(new BN(numberOfDays), new BN(rawSolAmount) )
         .accounts({
           common: {
             user,
@@ -824,12 +825,8 @@ export class MushiProgramRpc {
           )[0],
         })
         .instruction();
-      const ixs = [
-        web3.ComputeBudgetProgram.setComputeUnitLimit({ units: 150_000 }),
-        ix,
-      ];
       
-      const txSignature = await this.sendTx(ixs);
+      const txSignature = await this.sendTx([ix]);
       if (!txSignature) throw "failed to send tx";
       return { isPass: true, info: { txSignature } };
     } catch (leverageError) {
@@ -1257,6 +1254,8 @@ export class MushiProgramRpc {
       const currentDateString = getDateStringFromTimestamp(midnightTimestamp);
       const liquidationDateString = getDateStringFromTimestamp(Number(lastLiquidationDate));
       
+      const newEndDate = now + ((numberOfDays+1) * SECONDS_IN_A_DAY);
+      const newEndDateString = getDateStringFromTimestamp(newEndDate);
       // For debugging - print the date strings
       if (debug) {
         log({
@@ -1303,7 +1302,7 @@ export class MushiProgramRpc {
             this.programId
           )[0],
           dailyStateEndDate: web3.PublicKey.findProgramAddressSync(
-            [Buffer.from("daily-stats"), Buffer.from(currentDateString)],
+            [Buffer.from("daily-stats"), Buffer.from(newEndDateString)],
             this.programId
           )[0],
         })

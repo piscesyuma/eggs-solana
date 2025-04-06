@@ -24,7 +24,7 @@ describe("mushi_program_sell", () => {
   const user = provider.publicKey;
 
   // Parameters for the sell operation
-  const tokenAmount = 1000; // Amount of tokens to sell for SOL
+  const tokenAmount = 100; // Amount of tokens to sell for SOL
 
   it("Get initial state info", async () => {
     mainStateInfo = await connectivity.getMainStateInfo();

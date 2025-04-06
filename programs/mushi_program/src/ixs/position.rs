@@ -63,7 +63,7 @@ pub fn flash_close_position(ctx:Context<ACommonExtSubLoan>)->Result<()>{
     let signer_seeds:&[&[&[u8]]] = &[&[VAULT_SEED, &[*ctx.bumps.get("token_vault_owner").unwrap()]]];
     burn_tokens(
         ctx.accounts.common.token_vault.to_account_info(),
-        ctx.accounts.common.user_ata.to_account_info(),
+        ctx.accounts.common.token.to_account_info(),
         ctx.accounts.common.token_vault_owner.to_account_info(),
         ctx.accounts.common.token_program.to_account_info(),
         collateral,

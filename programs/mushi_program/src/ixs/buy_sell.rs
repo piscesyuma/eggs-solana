@@ -2,9 +2,7 @@ use anchor_lang::prelude::*;
 use anchor_spl::{associated_token::AssociatedToken, token_interface};
 
 use crate::{
-    constants::{FEES_BUY, FEES_BUY_REFERRAL, FEES_SELL, FEE_BASE_1000, MIN, VAULT_SEED}, 
-    error::MushiProgramError, 
-    utils::{burn_tokens, liquidate, mint_to_tokens_by_main_state, transfer_sol, trasnfer_sol_to_pubkey}, 
+    constants::{FEES_BUY, FEES_BUY_REFERRAL, FEES_SELL, FEE_BASE_1000, MIN, VAULT_SEED}, context::ACommonExtReferral, error::MushiProgramError, utils::{burn_tokens, liquidate, mint_to_tokens_by_main_state, transfer_sol, trasnfer_sol_to_pubkey} 
 };
 use crate::context::common::ACommon;
 
@@ -66,20 +64,20 @@ pub struct BuyWithReferralInput {
     pub referral_pubkey: Pubkey,
 }
 
-pub fn buy_with_referral(ctx:Context<ACommon>,  input: BuyWithReferralInput ) -> Result<()> {
+pub fn buy_with_referral(ctx:Context<ACommonExtReferral>,  input: BuyWithReferralInput ) -> Result<()> {
     let sol_amount = input.sol_amount;
     let referral = &mut ctx.accounts.referral;
     
 
-    let mushi = ctx.accounts.sol_to_mushi(sol_amount)?;
-    let global_state =&mut ctx.accounts.global_state;
+    let mushi = ctx.accounts.common.sol_to_mushi(sol_amount)?;
+    let global_state =&mut ctx.accounts.common.global_state;
     liquidate(
-        &mut ctx.accounts.last_liquidation_date_state,
+        &mut ctx.accounts.common.last_liquidation_date_state,
         global_state,
-        ctx.accounts.token_vault.to_account_info(),
-        ctx.accounts.token.to_account_info(),
-        ctx.accounts.token_vault_owner.to_account_info(),
-        ctx.accounts.token_program.to_account_info(),
+        ctx.accounts.common.token_vault.to_account_info(),
+        ctx.accounts.common.token.to_account_info(),
+        ctx.accounts.common.token_vault_owner.to_account_info(),
+        ctx.accounts.common.token_program.to_account_info(),
         *ctx.bumps.get("token_vault_owner").unwrap(),
     )?;
     let is_started = global_state.started;
@@ -98,14 +96,14 @@ pub fn buy_with_referral(ctx:Context<ACommon>,  input: BuyWithReferralInput ) ->
 
     // minting tokens
     mint_to_tokens_by_main_state(
-        ctx.accounts.token.to_account_info(), 
-    ctx.accounts.main_state.to_account_info(), 
-        ctx.accounts.user_ata.to_account_info(), 
-        ctx.accounts.token_program.to_account_info(), 
-        mushi * ctx.accounts.main_state.buy_fee / FEE_BASE_1000, 
+        ctx.accounts.common.token.to_account_info(), 
+    ctx.accounts.common.main_state.to_account_info(), 
+        ctx.accounts.common.user_ata.to_account_info(), 
+        ctx.accounts.common.token_program.to_account_info(), 
+        mushi * ctx.accounts.common.main_state.buy_fee / FEE_BASE_1000, 
         *ctx.bumps.get("main_state").unwrap()
     )?;
-    global_state.token_supply += mushi * ctx.accounts.main_state.buy_fee / FEE_BASE_1000;
+    global_state.token_supply += mushi * ctx.accounts.common.main_state.buy_fee / FEE_BASE_1000;
     
     // calc sender SOLs
     
@@ -122,27 +120,27 @@ pub fn buy_with_referral(ctx:Context<ACommon>,  input: BuyWithReferralInput ) ->
 
     let left_sol_amount = sol_amount.checked_sub(fee_treasury+fee_referral).unwrap();
     transfer_sol(
-        ctx.accounts.user.to_account_info(), 
-    ctx.accounts.fee_receiver.to_account_info(), 
-    ctx.accounts.system_program.to_account_info(), 
+        ctx.accounts.common.user.to_account_info(), 
+    ctx.accounts.common.fee_receiver.to_account_info(), 
+    ctx.accounts.common.system_program.to_account_info(), 
     fee_treasury, 
     None)?;
     
     transfer_sol(
-        ctx.accounts.user.to_account_info(), 
+        ctx.accounts.common.user.to_account_info(), 
         ctx.accounts.referral.as_ref().unwrap().to_account_info(), 
-        ctx.accounts.system_program.to_account_info(), 
+        ctx.accounts.common.system_program.to_account_info(), 
         fee_referral, 
         None
     )?;
     
     transfer_sol(
-        ctx.accounts.user.to_account_info(), 
-        ctx.accounts.token_vault_owner.to_account_info(), 
-        ctx.accounts.system_program.to_account_info(), 
+        ctx.accounts.common.user.to_account_info(), 
+        ctx.accounts.common.token_vault_owner.to_account_info(), 
+        ctx.accounts.common.system_program.to_account_info(), 
         left_sol_amount, 
         None)?;
-    ctx.accounts.safety_check()?;
+    ctx.accounts.common.safety_check()?;
     Ok(())
 }
 

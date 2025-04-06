@@ -2,15 +2,10 @@ use anchor_lang::prelude::*;
 use anchor_spl::{associated_token::AssociatedToken, token_interface};
 
 use crate::{
-    constants::{FEE_BASE_1000, VAULT_SEED}, 
-    error::MushiProgramError, 
-    state::{UserLoan, GlobalStats, MainState},
-    DailyStats, 
-    utils::{get_date_from_timestamp, get_date_string_from_timestamp, get_interest_fee}, 
+    constants::{FEE_BASE_1000, LAMPORTS_PER_SOL, SECONDS_IN_A_DAY, VAULT_SEED}, error::MushiProgramError, state::{GlobalStats, MainState, UserLoan}, utils::{get_date_from_timestamp, get_date_string_from_timestamp, get_interest_fee}, DailyStats 
 };
 
 #[derive(Accounts)]
-#[instruction(date: i64)]
 pub struct ACommon<'info> {
     #[account(mut)]
     pub user: Signer<'info>,
@@ -51,17 +46,6 @@ pub struct ACommon<'info> {
     #[account(
         init_if_needed,
         payer = user,
-        space = 8 + DailyStats::MAX_SIZE,
-        seeds = [
-            b"daily-stats".as_ref(),
-            get_date_string_from_timestamp(date).as_bytes()
-        ],
-        bump
-    )]
-    pub daily_state_by_date: Box<Account<'info, DailyStats>>,
-    #[account(
-        init_if_needed,
-        payer = user,
         space = 8 + UserLoan::MAX_SIZE,
         seeds = [
             b"user-loan".as_ref(),
@@ -93,9 +77,6 @@ pub struct ACommon<'info> {
         bump,
     )]
     pub token_vault_owner: SystemAccount<'info>,
-    
-    #[account(mut)]
-    pub referral: Option<UncheckedAccount<'info>>,
     
     #[account(
         mut,
@@ -159,15 +140,18 @@ impl<'info> ACommon<'info> {
     }
     pub fn safety_check(&mut self) -> Result<()> {
         let backing = self.get_backing()?;
-        let new_price: u64 = backing.checked_mul(1).unwrap()
-        .checked_div(self.global_state.token_supply).unwrap();
-        let _total_collateral = self.token_vault_owner.lamports();
-        if _total_collateral < self.global_state.total_collateral {
-            return Err(MushiProgramError::SafetyCheckFailed.into());
-        }
-        if new_price < self.global_state.last_price {
-            return Err(MushiProgramError::SafetyCheckFailed.into());
-        }
+        let new_price: u64 = (backing as u128).checked_mul(LAMPORTS_PER_SOL as u128).unwrap()
+        .checked_div(self.global_state.token_supply as u128).unwrap() as u64;
+        let _total_collateral = self.token_vault.amount;
+
+        require!(
+            _total_collateral >= self.global_state.total_collateral,
+            MushiProgramError::SafetyCheckCollateralFailed
+        );
+        require!(
+            new_price >= self.global_state.last_price,
+            MushiProgramError::SafetyCheckPriceFailed
+        );
         self.global_state.last_price = new_price;
         Ok(())
     }
@@ -176,9 +160,97 @@ impl<'info> ACommon<'info> {
         let current_date = Clock::get()?.unix_timestamp;
         Ok(end_date < current_date)
     }
-    pub fn add_loans_by_date(&mut self, borrowed: u64, collateral: u64, date: i64) -> Result<()> {
-        let daily_state = &mut self.daily_state_by_date;
-        let global_state = &mut self.global_state;
+    
+    pub fn leverage_fee(&self, sol_amount: u64, number_of_days: u64) -> Result<u64> {
+        let buy_fee_leverage = self.main_state.buy_fee_leverage;
+        let mint_fee = sol_amount.checked_mul(buy_fee_leverage).unwrap().checked_div(FEE_BASE_1000).unwrap();
+        let interest = get_interest_fee(sol_amount, number_of_days);
+        Ok(mint_fee.checked_add(interest).unwrap())
+    }
+}
+
+#[derive(Accounts)]
+pub struct ACommonExtReferral<'info> {
+    pub common: ACommon<'info>, // Embed the existing ACommon struct
+    
+    #[account(mut)]
+    pub referral: Option<UncheckedAccount<'info>>,
+}
+
+impl<'info> ACommonExtReferral<'info> {
+}
+
+#[derive(Accounts)]
+#[instruction(number_of_days: i64)]
+pub struct ACommonExtLoan<'info> {
+    pub common: ACommon<'info>, // Embed the existing ACommon struct
+    
+    #[account(mut)]
+    pub user: Signer<'info>,
+    
+    #[account(
+        init_if_needed,
+        payer = user,
+        space = 8 + DailyStats::MAX_SIZE,
+        seeds = [
+            b"daily-stats".as_ref(),
+            get_date_string_from_timestamp(Clock::get()?.unix_timestamp + (number_of_days+1) * SECONDS_IN_A_DAY).as_bytes()
+        ],
+        bump
+    )]
+    pub daily_state_end_date: Box<Account<'info, DailyStats>>, 
+    pub system_program: Program<'info, System>,
+}
+
+impl<'info> ACommonExtLoan<'info> {
+    pub fn add_loans_by_date(&mut self, borrowed: u64, collateral: u64) -> Result<()> {
+        let daily_state = &mut self.daily_state_end_date;
+        let global_state = &mut self.common.global_state;
+        daily_state.borrowed += borrowed;
+        daily_state.collateral += collateral;
+        global_state.total_borrowed += borrowed;
+        global_state.total_collateral += collateral;
+        Ok(())
+    }
+    
+}
+
+#[derive(Accounts)]
+#[instruction(number_of_days: i64)]
+pub struct ACommonExtLoan2<'info> {
+    pub common: ACommon<'info>, // Embed the existing ACommon struct
+    
+    #[account(mut)]
+    pub user: Signer<'info>,
+    
+    #[account(
+        seeds = [
+            b"daily-stats".as_ref(),
+            get_date_string_from_timestamp(common.user_loan.end_date).as_bytes()
+        ],
+        bump
+    )]
+    pub daily_state_old_end_date: Box<Account<'info, DailyStats>>, 
+
+    #[account(
+        init_if_needed,
+        payer = user,
+        space = 8 + DailyStats::MAX_SIZE,
+        seeds = [
+            b"daily-stats".as_ref(),
+            get_date_string_from_timestamp(Clock::get()?.unix_timestamp + (number_of_days+1) * SECONDS_IN_A_DAY).as_bytes()
+        ],
+        bump
+    )]
+    pub daily_state_end_date: Box<Account<'info, DailyStats>>, 
+    pub system_program: Program<'info, System>,
+}
+
+
+impl<'info> ACommonExtLoan2<'info> {
+    pub fn add_loans_by_date(&mut self, borrowed: u64, collateral: u64) -> Result<()> {
+        let daily_state = &mut self.daily_state_end_date;
+        let global_state = &mut self.common.global_state;
         daily_state.borrowed += borrowed;
         daily_state.collateral += collateral;
         global_state.total_borrowed += borrowed;
@@ -186,18 +258,40 @@ impl<'info> ACommon<'info> {
         Ok(())
     }
     pub fn sub_loans_by_date(&mut self, borrowed: u64, collateral: u64, date: i64) -> Result<()> {
-        let daily_state = &mut self.daily_state_by_date;
-        let global_state = &mut self.global_state;
+        let daily_state = &mut self.daily_state_old_end_date;
+        let global_state = &mut self.common.global_state;
         daily_state.borrowed -= borrowed;
         daily_state.collateral -= collateral;
         global_state.total_borrowed -= borrowed;
         global_state.total_collateral -= collateral;
         Ok(())
     }
-    pub fn leverage_fee(&self, sol_amount: u64, number_of_days: u64) -> Result<u64> {
-        let buy_fee_leverage = self.main_state.buy_fee_leverage;
-        let mint_fee = sol_amount.checked_mul(buy_fee_leverage).unwrap().checked_div(FEE_BASE_1000).unwrap();
-        let interest = get_interest_fee(sol_amount, number_of_days);
-        Ok(mint_fee.checked_add(interest).unwrap())
+}
+
+
+#[derive(Accounts)]
+pub struct ACommonExtSubLoan<'info> {
+    pub common: ACommon<'info>, // Embed the existing ACommon struct
+    
+    #[account(
+        seeds = [
+            b"daily-stats".as_ref(),
+            get_date_string_from_timestamp(common.user_loan.end_date).as_bytes()
+        ],
+        bump
+    )]
+    pub daily_state_old_end_date: Box<Account<'info, DailyStats>>, 
+}
+
+
+impl<'info> ACommonExtSubLoan<'info> {
+    pub fn sub_loans_by_date(&mut self, borrowed: u64, collateral: u64, date: i64) -> Result<()> {
+        let daily_state = &mut self.daily_state_old_end_date;
+        let global_state = &mut self.common.global_state;
+        daily_state.borrowed -= borrowed;
+        daily_state.collateral -= collateral;
+        global_state.total_borrowed -= borrowed;
+        global_state.total_collateral -= collateral;
+        Ok(())
     }
 }

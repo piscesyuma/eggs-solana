@@ -39,7 +39,7 @@ pub mod mushi_program {
         ixs::buy(ctx, sol_amount)
     }
 
-    pub fn buy_with_referral(ctx: Context<ACommon>, input: BuyWithReferralInput) -> Result<()> {
+    pub fn buy_with_referral(ctx: Context<ACommonExtReferral>, input: BuyWithReferralInput) -> Result<()> {
         ixs::buy_with_referral(ctx, input)
     }
 
@@ -47,31 +47,31 @@ pub mod mushi_program {
         ixs::sell(ctx, token_amount)
     }
 
-    pub fn borrow(ctx: Context<ACommon>, sol_amount: u64, number_of_days: u64) -> Result<()> {
-        ixs::borrow(ctx, sol_amount, number_of_days)
+    pub fn borrow(ctx: Context<ACommonExtLoan>, number_of_days: u64, sol_amount: u64) -> Result<()> {
+        ixs::borrow(ctx, number_of_days, sol_amount)
     }
 
-    pub fn repay(ctx: Context<ACommon>, sol_amount: u64) -> Result<()> {
+    pub fn repay(ctx: Context<ACommonExtSubLoan>, sol_amount: u64) -> Result<()> {
         ixs::repay(ctx, sol_amount)
     }
 
-    pub fn leverage(ctx: Context<ACommon>, sol_amount: u64, number_of_days: u64) -> Result<()> {
-        ixs::leverage(ctx, sol_amount, number_of_days)
+    pub fn leverage(ctx: Context<ACommonExtLoan>, number_of_days: u64, sol_amount: u64) -> Result<()> {
+        ixs::leverage(ctx, number_of_days, sol_amount)
     }
 
-    pub fn remove_collateral(ctx: Context<ACommon>, amount: u64) -> Result<()> {
+    pub fn remove_collateral(ctx: Context<ACommonExtSubLoan>, amount: u64) -> Result<()> {
         ixs::remove_collateral(ctx, amount)
     }
 
-    pub fn extend_loan(ctx: Context<ACommon>, sol_amount: u64, number_of_days: u64) -> Result<()> {
-        ixs::extend_loan(ctx, sol_amount, number_of_days)
+    pub fn extend_loan(ctx: Context<ACommonExtLoan2>, number_of_days: u64, sol_amount: u64) -> Result<()> {
+        ixs::extend_loan(ctx, number_of_days, sol_amount)
     }
     
-    pub fn close_position(ctx: Context<ACommon>, sol_amount: u64) -> Result<()> {
+    pub fn close_position(ctx: Context<ACommonExtSubLoan>, sol_amount: u64) -> Result<()> {
         ixs::close_position(ctx, sol_amount)
     }
 
-    pub fn flash_close_position(ctx: Context<ACommon>) -> Result<()> {
+    pub fn flash_close_position(ctx: Context<ACommonExtSubLoan>) -> Result<()> {
         ixs::flash_close_position(ctx)
     }
 }

@@ -5,7 +5,7 @@ import { MushiProgram } from "../target/types/mushi_program";
 import { MainStateInfo, GlobalStateInfo, sleep, MushiProgramRpc, getCurrentDateString } from "./mushiProgramRpc";
 
 const log = console.log;
-describe("mushi_program_buy", () => {
+describe("mushi_program_flash_close_position", () => {
   // Configure the client to use the local cluster.
   anchor.setProvider(anchor.AnchorProvider.env());
   const provider = anchor.AnchorProvider.env();
@@ -22,9 +22,6 @@ describe("mushi_program_buy", () => {
     programId,
   });
   const user = provider.publicKey;
-
-  // Parameters for the buy operation
-  const solAmount = 0.1; // Amount of SOL to buy tokens with
 
   it("Get initial state info", async () => {
     mainStateInfo = await connectivity.getMainStateInfo();
@@ -46,14 +43,14 @@ describe("mushi_program_buy", () => {
     log(`Current date: ${getCurrentDateString()}`);
   });
 
-  it("Buy tokens with SOL", async () => {
+  it("Flash close position", async () => {
     if (!globalInfo) throw "Global state info is not available";
 
-    // Perform the buy operation with debug=true to show date strings
-    const buyRes = await connectivity.buy(solAmount, true);
-    if (!buyRes.isPass) throw "Failed to buy tokens";
+    // Perform the flash close position operation with debug=true to show date strings
+    const flashClosePositionRes = await connectivity.flash_close_position(true);
+    if (!flashClosePositionRes.isPass) throw "Failed to flash close position";
     
-    log({ buyRes: buyRes.info });
+    log({ flashClosePositionRes: flashClosePositionRes.info });
 
     // Wait for the transaction to be processed
     await sleep(10_000);
@@ -63,12 +60,7 @@ describe("mushi_program_buy", () => {
     if (!updatedGlobalInfo) throw "Failed to get updated global state info";
     log({ updatedGlobalInfo });
     
-    // You might want to add additional verification here
-    // For example, check that token supply has increased
-    if (updatedGlobalInfo.tokenSupply <= globalInfo?.tokenSupply!) {
-      log("Warning: Token supply did not increase as expected");
-    } else {
-      log(`Token supply increased from ${globalInfo?.tokenSupply} to ${updatedGlobalInfo.tokenSupply}`);
-    }
+    // Log the transaction was successful
+    log("Successfully flash closed position");
   });
 }); 

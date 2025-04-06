@@ -40,9 +40,18 @@ export type MainStateInfo = {
   buyFeeLeverage: number;
 };
 export type GlobalStateInfo = {
+  started: boolean;
   tokenSupply: number;
   token: web3.PublicKey;
-  started: boolean;
+  lastLiquidationDate: number;
+  totalBorrowed: number;
+  totalCollateral: number;
+  lastPrice: number;
+};
+export type UserLoanInfo = {
+  endDate: string;
+  borrowed: number;
+  collateral: number;
 };
 
 /**
@@ -229,15 +238,39 @@ export class MushiProgramRpc {
 
   async getGlobalInfo(): Promise<GlobalStateInfo | null> {
     try {
-      const { tokenSupply, token, started } =
+      const { tokenSupply, token, started, lastLiquidationDate, totalBorrowed, totalCollateral, lastPrice } =
         await this.program.account.globalStats.fetch(this.globalState);
       return {
         tokenSupply: Number(tokenSupply.toString()),
         token,
         started,
+        lastLiquidationDate: Number(lastLiquidationDate.toString()),
+        totalBorrowed: Number(totalBorrowed.toString()),
+        totalCollateral: Number(totalCollateral.toString()),
+        lastPrice: Number(lastPrice.toString()),
       };
     } catch (getGlobalStateInfoError) {
       log({ getGlobalStateInfoError });
+      return null;
+    }
+  }
+
+  async getUserLoanInfo(user: web3.PublicKey): Promise<UserLoanInfo | null> {
+    try {
+      const userLoanAddress = web3.PublicKey.findProgramAddressSync(
+        [Buffer.from("user-loan"), user.toBuffer()],
+        this.programId
+      )[0];
+
+      const userLoanData = await this.program.account.userLoan.fetch(userLoanAddress);
+      log({ userLoanData: userLoanData, userEndDate: getDateStringFromTimestamp(Number(userLoanData.endDate.toString())) });
+      return {
+        endDate: userLoanData.endDate.toString(),
+        borrowed: Number(userLoanData.borrowed.toString()),
+        collateral: Number(userLoanData.collateral.toString()),
+      };
+    } catch (getUserLoanInfoError) {
+      log({ getUserLoanInfoError });
       return null;
     }
   }
@@ -393,6 +426,7 @@ export class MushiProgramRpc {
       
       // Get the date strings correctly formatted
       // const currentDateString = getDateStringFromTimestamp(midnightTimestamp);
+      const currentDateString = getCurrentDateString();
       const liquidationDateString = getDateStringFromTimestamp(Number(lastLiquidationDate));
       
       const ix = await this.program.methods
@@ -402,7 +436,11 @@ export class MushiProgramRpc {
           mainState: this.mainState,
           globalState: this.globalState,
           dailyState: web3.PublicKey.findProgramAddressSync(
-            [Buffer.from("daily-stats"), Buffer.from(getCurrentDateString())],
+            [Buffer.from("daily-stats"), Buffer.from(currentDateString)],
+            this.programId
+          )[0],
+          userLoan: web3.PublicKey.findProgramAddressSync(
+            [Buffer.from("user-loan"), user.toBuffer()],
             this.programId
           )[0],
           lastLiquidationDateState: web3.PublicKey.findProgramAddressSync(
@@ -417,7 +455,6 @@ export class MushiProgramRpc {
           associatedTokenProgram,
           tokenProgram,
           systemProgram,
-          referral: null,
         })
         .instruction();
       
@@ -466,7 +503,7 @@ export class MushiProgramRpc {
       const midnightTimestamp = now - (now % SECONDS_IN_A_DAY);
       
       // Get the date strings correctly formatted
-      // const currentDateString = getDateStringFromTimestamp(midnightTimestamp);
+      const currentDateString = getDateStringFromTimestamp(midnightTimestamp);
       const liquidationDateString = getDateStringFromTimestamp(Number(lastLiquidationDate));
       
       const ix = await this.program.methods
@@ -475,25 +512,31 @@ export class MushiProgramRpc {
           referralPubkey: referralPubkey
         })
         .accounts({
-          user,
-          mainState: this.mainState,
-          globalState: this.globalState,
-          dailyState: web3.PublicKey.findProgramAddressSync(
-            [Buffer.from("daily-stats"), Buffer.from(getCurrentDateString())],
-            this.programId
-          )[0],
-          lastLiquidationDateState: web3.PublicKey.findProgramAddressSync(
-            [Buffer.from("daily-stats"), Buffer.from(liquidationDateString)],
-            this.programId
-          )[0],
-          feeReceiver,
-          token,
-          userAta,
-          tokenVaultOwner: this.vaultOwner,
-          tokenVault,
-          associatedTokenProgram,
-          tokenProgram,
-          systemProgram,
+          common: {
+            user,
+            mainState: this.mainState,
+            globalState: this.globalState,
+            dailyState: web3.PublicKey.findProgramAddressSync(
+              [Buffer.from("daily-stats"), Buffer.from(currentDateString)],
+              this.programId
+            )[0],
+            userLoan: web3.PublicKey.findProgramAddressSync(
+              [Buffer.from("user-loan"), user.toBuffer()],
+              this.programId
+            )[0],
+            lastLiquidationDateState: web3.PublicKey.findProgramAddressSync(
+              [Buffer.from("daily-stats"), Buffer.from(liquidationDateString)],
+              this.programId
+            )[0],
+            feeReceiver,
+            token,
+            userAta,
+            tokenVaultOwner: this.vaultOwner,
+            tokenVault,
+            associatedTokenProgram,
+            tokenProgram,
+            systemProgram,
+          },
           referral: referralPubkey,
         })
         .instruction();
@@ -570,6 +613,10 @@ export class MushiProgramRpc {
             [Buffer.from("daily-stats"), Buffer.from(liquidationDateString)],
             this.programId
           )[0],
+          userLoan: web3.PublicKey.findProgramAddressSync(
+            [Buffer.from("user-loan"), user.toBuffer()],
+            this.programId
+          )[0],
           feeReceiver,
           token,
           userAta,
@@ -578,7 +625,6 @@ export class MushiProgramRpc {
           associatedTokenProgram,
           tokenProgram,
           systemProgram,
-          referral: null,
         })
         .instruction();
       
@@ -593,6 +639,686 @@ export class MushiProgramRpc {
     } catch (sellError) {
       log({ sellError });
       return { isPass: false, info: "failed to process input" };
+    }
+  }
+
+  async borrow(
+    solAmount: number,
+    numberOfDays: number,
+    debug: boolean = false
+  ): Promise<SendTxResult> {
+    try {
+      const globalInfo = await this.getGlobalInfo();
+      if (!globalInfo) throw "Failed to get global state info";
+      const { token } = globalInfo;
+      const mainStateInfo = await this.getMainStateInfo();
+      if (!mainStateInfo) throw "Failed to get main state info";
+      const { feeReceiver } = mainStateInfo;
+
+      // Get the global state directly to access last_liquidation_date
+      const globalState = await this.program.account.globalStats.fetch(this.globalState);
+      const lastLiquidationDate = globalState.lastLiquidationDate;
+
+      const rawSolAmount = Math.trunc(solAmount * SOL_DECIMALS_HELPER);
+      const user = this.provider.publicKey;
+      const userAta = getAssociatedTokenAddressSync(token, user);
+      const tokenVault = getAssociatedTokenAddressSync(
+        token,
+        this.vaultOwner,
+        true
+      );
+      
+      // Calculate the midnight timestamp in seconds (Unix timestamp) as the program does
+      const now = Math.floor(Date.now() / 1000); // Current time in seconds
+      const midnightTimestamp = now - (now % SECONDS_IN_A_DAY);
+      
+      // Get the date strings correctly formatted
+      const currentDateString = getDateStringFromTimestamp(midnightTimestamp);
+      const liquidationDateString = getDateStringFromTimestamp(Number(lastLiquidationDate));
+      const endDate = now + (numberOfDays * SECONDS_IN_A_DAY) + SECONDS_IN_A_DAY;
+      const endDateString = getDateStringFromTimestamp(endDate);
+      
+      // For debugging - print the date strings
+      if (debug) {
+        log({
+          currentDate: currentDateString,
+          liquidationDate: liquidationDateString,
+          currentTimestamp: midnightTimestamp, 
+          liquidationTimestamp: Number(lastLiquidationDate),
+          endDate: endDateString,
+          endDateTimestamp: endDate,
+        });
+      }
+      
+      const ix = await this.program.methods
+        .borrow(new BN(numberOfDays), new BN(rawSolAmount))
+        .accounts({
+          common: {
+            user,
+            mainState: this.mainState,
+            globalState: this.globalState,
+            dailyState: web3.PublicKey.findProgramAddressSync(
+              [Buffer.from("daily-stats"), Buffer.from(currentDateString)],
+              this.programId
+            )[0],
+            lastLiquidationDateState: web3.PublicKey.findProgramAddressSync(
+              [Buffer.from("daily-stats"), Buffer.from(liquidationDateString)],
+              this.programId
+            )[0],
+            
+            userLoan: web3.PublicKey.findProgramAddressSync(
+              [Buffer.from("user-loan"), user.toBuffer()],
+              this.programId
+            )[0],
+            feeReceiver,
+            token,
+            userAta,
+            tokenVaultOwner: this.vaultOwner,
+            tokenVault,
+            associatedTokenProgram,
+            tokenProgram,
+            systemProgram,
+          },
+          user,
+          systemProgram,
+          dailyStateEndDate: web3.PublicKey.findProgramAddressSync(
+            [Buffer.from("daily-stats"), Buffer.from(endDateString)],
+            this.programId
+          )[0],
+        })
+        .instruction();
+      
+      const ixs = [
+        web3.ComputeBudgetProgram.setComputeUnitLimit({ units: 150_000 }),
+        ix,
+      ];
+      
+      const txSignature = await this.sendTx(ixs);
+      if (!txSignature) throw "failed to send tx";
+      return { isPass: true, info: { txSignature } };
+    } catch (borrowError) {
+      log({ borrowError });
+      return { isPass: false, info: "failed to borrow" };
+    }
+  }
+
+  async leverage(
+    solAmount: number,
+    numberOfDays: number,
+    debug: boolean = false
+  ): Promise<SendTxResult> {
+    try {
+      const globalInfo = await this.getGlobalInfo();
+      if (!globalInfo) throw "Failed to get global state info";
+      const { token } = globalInfo;
+      const mainStateInfo = await this.getMainStateInfo();
+      if (!mainStateInfo) throw "Failed to get main state info";
+      const { feeReceiver } = mainStateInfo;
+
+      // Get the global state directly to access last_liquidation_date
+      const globalState = await this.program.account.globalStats.fetch(this.globalState);
+      const lastLiquidationDate = globalState.lastLiquidationDate;
+
+      const rawSolAmount = Math.trunc(solAmount * SOL_DECIMALS_HELPER);
+      const user = this.provider.publicKey;
+      const userAta = getAssociatedTokenAddressSync(token, user);
+      const tokenVault = getAssociatedTokenAddressSync(
+        token,
+        this.vaultOwner,
+        true
+      );
+      
+      // Calculate the midnight timestamp in seconds (Unix timestamp) as the program does
+      const now = Math.floor(Date.now() / 1000); // Current time in seconds
+      const midnightTimestamp = now - (now % SECONDS_IN_A_DAY);
+      
+      // Get the date strings correctly formatted
+      const currentDateString = getDateStringFromTimestamp(midnightTimestamp);
+      const liquidationDateString = getDateStringFromTimestamp(Number(lastLiquidationDate));
+      
+      const endDate = now + (numberOfDays * SECONDS_IN_A_DAY) + SECONDS_IN_A_DAY;
+      const endDateString = getDateStringFromTimestamp(endDate);
+
+      // For debugging - print the date strings
+      if (debug) {
+        log({
+          currentDate: currentDateString,
+          liquidationDate: liquidationDateString,
+          currentTimestamp: midnightTimestamp, 
+          liquidationTimestamp: Number(lastLiquidationDate)
+        });
+      }
+      
+      const ix = await this.program.methods
+        .leverage(new BN(numberOfDays), new BN(rawSolAmount) )
+        .accounts({
+          common: {
+            user,
+            mainState: this.mainState,
+            globalState: this.globalState,
+            dailyState: web3.PublicKey.findProgramAddressSync(
+            [Buffer.from("daily-stats"), Buffer.from(currentDateString)],
+              this.programId
+            )[0],
+            lastLiquidationDateState: web3.PublicKey.findProgramAddressSync(
+              [Buffer.from("daily-stats"), Buffer.from(liquidationDateString)],
+              this.programId
+            )[0],
+            userLoan: web3.PublicKey.findProgramAddressSync(
+              [Buffer.from("user-loan"), user.toBuffer()],
+              this.programId
+            )[0],
+            feeReceiver,
+            token,
+            userAta,
+            tokenVaultOwner: this.vaultOwner,
+            tokenVault,
+            associatedTokenProgram,
+            tokenProgram,
+            systemProgram,
+          },
+          user,
+          systemProgram,
+          dailyStateEndDate: web3.PublicKey.findProgramAddressSync(
+            [Buffer.from("daily-stats"), Buffer.from(endDateString)],
+            this.programId
+          )[0],
+        })
+        .instruction();
+      
+      const txSignature = await this.sendTx([ix]);
+      if (!txSignature) throw "failed to send tx";
+      return { isPass: true, info: { txSignature } };
+    } catch (leverageError) {
+      log({ leverageError });
+      return { isPass: false, info: "failed to leverage" };
+    }
+  }
+
+  async repay(
+    solAmount: number,
+    debug: boolean = false
+  ): Promise<SendTxResult> {
+    try {
+      const globalInfo = await this.getGlobalInfo();
+      if (!globalInfo) throw "Failed to get global state info";
+      const { token } = globalInfo;
+      const mainStateInfo = await this.getMainStateInfo();
+      if (!mainStateInfo) throw "Failed to get main state info";
+      const { feeReceiver } = mainStateInfo;
+
+      const userLoanInfo = await this.getUserLoanInfo(this.provider.publicKey);
+      if (!userLoanInfo) throw "Failed to get user loan info";
+      const { endDate } = userLoanInfo;
+
+      // Get the global state directly to access last_liquidation_date
+      const globalState = await this.program.account.globalStats.fetch(this.globalState);
+      const lastLiquidationDate = globalState.lastLiquidationDate;
+
+      const rawSolAmount = Math.trunc(solAmount * SOL_DECIMALS_HELPER);
+      const user = this.provider.publicKey;
+      const userAta = getAssociatedTokenAddressSync(token, user);
+      const tokenVault = getAssociatedTokenAddressSync(
+        token,
+        this.vaultOwner,
+        true
+      );
+      
+      // Calculate the midnight timestamp in seconds (Unix timestamp) as the program does
+      const now = Math.floor(Date.now() / 1000); // Current time in seconds
+      const midnightTimestamp = now - (now % SECONDS_IN_A_DAY);
+      
+      // Get the date strings correctly formatted
+      const currentDateString = getDateStringFromTimestamp(midnightTimestamp);
+      const liquidationDateString = getDateStringFromTimestamp(Number(lastLiquidationDate));
+      
+      // For debugging - print the date strings
+      if (debug) {
+        log({
+          currentDate: currentDateString,
+          liquidationDate: liquidationDateString,
+          currentTimestamp: midnightTimestamp, 
+          liquidationTimestamp: Number(lastLiquidationDate)
+        });
+      }
+      
+      const ix = await this.program.methods
+        .repay(new BN(rawSolAmount))
+        .accounts({
+          common: {
+            user,
+            mainState: this.mainState,
+            globalState: this.globalState,
+            dailyState: web3.PublicKey.findProgramAddressSync(
+            [Buffer.from("daily-stats"), Buffer.from(currentDateString)],
+              this.programId
+            )[0],
+            lastLiquidationDateState: web3.PublicKey.findProgramAddressSync(
+              [Buffer.from("daily-stats"), Buffer.from(liquidationDateString)],
+              this.programId
+            )[0],
+            userLoan: web3.PublicKey.findProgramAddressSync(
+              [Buffer.from("user-loan"), user.toBuffer()],
+              this.programId
+            )[0],
+            feeReceiver,
+            token,
+            userAta,
+            tokenVaultOwner: this.vaultOwner,
+            tokenVault,
+            associatedTokenProgram,
+            tokenProgram,
+            systemProgram,
+          },
+          dailyStateOldEndDate: web3.PublicKey.findProgramAddressSync(
+            [Buffer.from("daily-stats"), Buffer.from(getDateStringFromTimestamp(Number(endDate)))],
+            this.programId
+          )[0],
+        })
+        .instruction();
+      const ixs = [
+        web3.ComputeBudgetProgram.setComputeUnitLimit({ units: 150_000 }),
+        ix,
+      ];
+      
+      const txSignature = await this.sendTx(ixs);
+      if (!txSignature) throw "failed to send tx";
+      return { isPass: true, info: { txSignature } };
+    } catch (repayError) {
+      log({ repayError });
+      return { isPass: false, info: "failed to repay" };
+    }
+  }
+
+  async remove_collateral(
+    amount: number,
+    debug: boolean = false
+  ): Promise<SendTxResult> {
+    try {
+      const globalInfo = await this.getGlobalInfo();
+      if (!globalInfo) throw "Failed to get global state info";
+      const { token } = globalInfo;
+      const mainStateInfo = await this.getMainStateInfo();
+      if (!mainStateInfo) throw "Failed to get main state info";
+      const { feeReceiver } = mainStateInfo;
+
+      const userLoanInfo = await this.getUserLoanInfo(this.provider.publicKey);
+      if (!userLoanInfo) throw "Failed to get user loan info";
+      const { endDate } = userLoanInfo;
+      
+      // Get the global state directly to access last_liquidation_date
+      const globalState = await this.program.account.globalStats.fetch(this.globalState);
+      const lastLiquidationDate = globalState.lastLiquidationDate;
+
+      const rawAmount = Math.trunc(amount * TOKEN_DECIMALS_HELPER);
+      const user = this.provider.publicKey;
+      const userAta = getAssociatedTokenAddressSync(token, user);
+      const tokenVault = getAssociatedTokenAddressSync(
+        token,
+        this.vaultOwner,
+        true
+      );
+      
+      // Calculate the midnight timestamp in seconds (Unix timestamp) as the program does
+      const now = Math.floor(Date.now() / 1000); // Current time in seconds
+      const midnightTimestamp = now - (now % SECONDS_IN_A_DAY);
+      
+      // Get the date strings correctly formatted
+      const currentDateString = getDateStringFromTimestamp(midnightTimestamp);
+      const liquidationDateString = getDateStringFromTimestamp(Number(lastLiquidationDate));
+      
+      // For debugging - print the date strings
+      if (debug) {
+        log({
+          currentDate: currentDateString,
+          liquidationDate: liquidationDateString,
+          currentTimestamp: midnightTimestamp, 
+          liquidationTimestamp: Number(lastLiquidationDate)
+        });
+      }
+      
+      const ix = await this.program.methods
+        .removeCollateral(new BN(rawAmount))
+        .accounts({
+          common: {
+            user,
+            mainState: this.mainState,
+            globalState: this.globalState,
+            dailyState: web3.PublicKey.findProgramAddressSync(
+            [Buffer.from("daily-stats"), Buffer.from(currentDateString)],
+              this.programId
+            )[0],
+            lastLiquidationDateState: web3.PublicKey.findProgramAddressSync(
+              [Buffer.from("daily-stats"), Buffer.from(liquidationDateString)],
+              this.programId
+            )[0],
+            userLoan: web3.PublicKey.findProgramAddressSync(
+              [Buffer.from("user-loan"), user.toBuffer()],
+              this.programId
+            )[0],
+            feeReceiver,
+            token,
+            userAta,
+            tokenVaultOwner: this.vaultOwner,
+            tokenVault,
+            associatedTokenProgram,
+            tokenProgram,
+            systemProgram,
+          },
+          dailyStateOldEndDate: web3.PublicKey.findProgramAddressSync(
+            [Buffer.from("daily-stats"), Buffer.from(getDateStringFromTimestamp(Number(endDate)))],
+            this.programId
+          )[0],
+        })
+        .instruction();
+      
+      const ixs = [
+        web3.ComputeBudgetProgram.setComputeUnitLimit({ units: 150_000 }),
+        ix,
+      ];
+      
+      const txSignature = await this.sendTx(ixs);
+      if (!txSignature) throw "failed to send tx";
+      return { isPass: true, info: { txSignature } };
+    } catch (removeCollateralError) {
+      log({ removeCollateralError });
+      return { isPass: false, info: "failed to remove collateral" };
+    }
+  }
+
+  async close_position(
+    solAmount: number,
+    debug: boolean = false
+  ): Promise<SendTxResult> {
+    try {
+      const globalInfo = await this.getGlobalInfo();
+      if (!globalInfo) throw "Failed to get global state info";
+      const { token } = globalInfo;
+      const mainStateInfo = await this.getMainStateInfo();
+      if (!mainStateInfo) throw "Failed to get main state info";
+      const { feeReceiver } = mainStateInfo;
+
+      const userLoanInfo = await this.getUserLoanInfo(this.provider.publicKey);
+      if (!userLoanInfo) throw "Failed to get user loan info";
+      const { endDate } = userLoanInfo;
+
+      // Get the global state directly to access last_liquidation_date
+      const globalState = await this.program.account.globalStats.fetch(this.globalState);
+      const lastLiquidationDate = globalState.lastLiquidationDate;
+
+      const rawSolAmount = Math.trunc(solAmount * SOL_DECIMALS_HELPER);
+      const user = this.provider.publicKey;
+      const userAta = getAssociatedTokenAddressSync(token, user);
+      const tokenVault = getAssociatedTokenAddressSync(
+        token,
+        this.vaultOwner,
+        true
+      );
+      
+      // Calculate the midnight timestamp in seconds (Unix timestamp) as the program does
+      const now = Math.floor(Date.now() / 1000); // Current time in seconds
+      const midnightTimestamp = now - (now % SECONDS_IN_A_DAY);
+      
+      // Get the date strings correctly formatted
+      const currentDateString = getDateStringFromTimestamp(midnightTimestamp);
+      const liquidationDateString = getDateStringFromTimestamp(Number(lastLiquidationDate));
+      
+      // For debugging - print the date strings
+      if (debug) {
+        log({
+          currentDate: currentDateString,
+          liquidationDate: liquidationDateString,
+          currentTimestamp: midnightTimestamp, 
+          liquidationTimestamp: Number(lastLiquidationDate)
+        });
+      }
+      
+      const ix = await this.program.methods
+        .closePosition(new BN(rawSolAmount))
+        .accounts({
+          common: {
+            user,
+            mainState: this.mainState,
+            globalState: this.globalState,
+            dailyState: web3.PublicKey.findProgramAddressSync(
+            [Buffer.from("daily-stats"), Buffer.from(currentDateString)],
+              this.programId
+            )[0],
+            lastLiquidationDateState: web3.PublicKey.findProgramAddressSync(
+              [Buffer.from("daily-stats"), Buffer.from(liquidationDateString)],
+              this.programId
+            )[0],
+            userLoan: web3.PublicKey.findProgramAddressSync(
+              [Buffer.from("user-loan"), user.toBuffer()],
+              this.programId
+            )[0],
+            feeReceiver,
+            token,
+            userAta,
+            tokenVaultOwner: this.vaultOwner,
+            tokenVault,
+            associatedTokenProgram,
+            tokenProgram,
+            systemProgram,
+          },
+          dailyStateOldEndDate: web3.PublicKey.findProgramAddressSync(
+            [Buffer.from("daily-stats"), Buffer.from(getDateStringFromTimestamp(Number(endDate)))],
+            this.programId
+          )[0],
+        })
+        .instruction();
+      
+      const ixs = [
+        web3.ComputeBudgetProgram.setComputeUnitLimit({ units: 150_000 }),
+        ix,
+      ];
+      
+      const txSignature = await this.sendTx(ixs);
+      if (!txSignature) throw "failed to send tx";
+      return { isPass: true, info: { txSignature } };
+    } catch (closePositionError) {
+      log({ closePositionError });
+      return { isPass: false, info: "failed to close position" };
+    }
+  }
+
+  async flash_close_position(
+    debug: boolean = false
+  ): Promise<SendTxResult> {
+    try {
+      const globalInfo = await this.getGlobalInfo();
+      if (!globalInfo) throw "Failed to get global state info";
+      const { token } = globalInfo;
+      const mainStateInfo = await this.getMainStateInfo();
+      if (!mainStateInfo) throw "Failed to get main state info";
+      const { feeReceiver } = mainStateInfo;
+
+      const userLoanInfo = await this.getUserLoanInfo(this.provider.publicKey);
+      if (!userLoanInfo) throw "Failed to get user loan info";
+      const { endDate } = userLoanInfo;
+
+      // Get the global state directly to access last_liquidation_date
+      const globalState = await this.program.account.globalStats.fetch(this.globalState);
+      const lastLiquidationDate = globalState.lastLiquidationDate;
+
+      const user = this.provider.publicKey;
+      const userAta = getAssociatedTokenAddressSync(token, user);
+      const tokenVault = getAssociatedTokenAddressSync(
+        token,
+        this.vaultOwner,
+        true
+      );
+      
+      // Calculate the midnight timestamp in seconds (Unix timestamp) as the program does
+      const now = Math.floor(Date.now() / 1000); // Current time in seconds
+      const midnightTimestamp = now - (now % SECONDS_IN_A_DAY);
+      
+      // Get the date strings correctly formatted
+      const currentDateString = getDateStringFromTimestamp(midnightTimestamp);
+      const liquidationDateString = getDateStringFromTimestamp(Number(lastLiquidationDate));
+      
+      // For debugging - print the date strings
+      if (debug) {
+        log({
+          currentDate: currentDateString,
+          liquidationDate: liquidationDateString,
+          currentTimestamp: midnightTimestamp, 
+          liquidationTimestamp: Number(lastLiquidationDate)
+        });
+      }
+      
+      const ix = await this.program.methods
+        .flashClosePosition()
+        .accounts({
+          common: {
+            user,
+            mainState: this.mainState,
+            globalState: this.globalState,
+            dailyState: web3.PublicKey.findProgramAddressSync(
+            [Buffer.from("daily-stats"), Buffer.from(currentDateString)],
+            this.programId
+            )[0],
+            lastLiquidationDateState: web3.PublicKey.findProgramAddressSync(
+              [Buffer.from("daily-stats"), Buffer.from(liquidationDateString)],
+              this.programId
+            )[0],
+            userLoan: web3.PublicKey.findProgramAddressSync(
+              [Buffer.from("user-loan"), user.toBuffer()],
+              this.programId
+            )[0],
+            feeReceiver,
+            token,
+            userAta,
+            tokenVaultOwner: this.vaultOwner,
+            tokenVault,
+            associatedTokenProgram,
+            tokenProgram,
+            systemProgram,
+          },
+          dailyStateOldEndDate: web3.PublicKey.findProgramAddressSync(
+            [Buffer.from("daily-stats"), Buffer.from(getDateStringFromTimestamp(Number(endDate)))],
+            this.programId
+          )[0],
+        })
+        .instruction();
+      
+      const ixs = [
+        web3.ComputeBudgetProgram.setComputeUnitLimit({ units: 150_000 }),
+        ix,
+      ];
+      
+      const txSignature = await this.sendTx(ixs);
+      if (!txSignature) throw "failed to send tx";
+      return { isPass: true, info: { txSignature } };
+    } catch (flashClosePositionError) {
+      log({ flashClosePositionError });
+      return { isPass: false, info: "failed to flash close position" };
+    }
+  }
+
+  async extend_loan(
+    solAmount: number,
+    numberOfDays: number,
+    debug: boolean = false
+  ): Promise<SendTxResult> {
+    try {
+      const globalInfo = await this.getGlobalInfo();
+      if (!globalInfo) throw "Failed to get global state info";
+      const { token } = globalInfo;
+      const mainStateInfo = await this.getMainStateInfo();
+      if (!mainStateInfo) throw "Failed to get main state info";
+      const { feeReceiver } = mainStateInfo;
+
+      const userLoanInfo = await this.getUserLoanInfo(this.provider.publicKey);
+      if (!userLoanInfo) throw "Failed to get user loan info";
+      const { endDate } = userLoanInfo;
+
+      // Get the global state directly to access last_liquidation_date
+      const globalState = await this.program.account.globalStats.fetch(this.globalState);
+      const lastLiquidationDate = globalState.lastLiquidationDate;
+
+      const rawSolAmount = Math.trunc(solAmount * SOL_DECIMALS_HELPER);
+      const user = this.provider.publicKey;
+      const userAta = getAssociatedTokenAddressSync(token, user);
+      const tokenVault = getAssociatedTokenAddressSync(
+        token,
+        this.vaultOwner,
+        true
+      );
+      
+      // Calculate the midnight timestamp in seconds (Unix timestamp) as the program does
+      const now = Math.floor(Date.now() / 1000); // Current time in seconds
+      const midnightTimestamp = now - (now % SECONDS_IN_A_DAY);
+      
+      // Get the date strings correctly formatted
+      const currentDateString = getDateStringFromTimestamp(midnightTimestamp);
+      const liquidationDateString = getDateStringFromTimestamp(Number(lastLiquidationDate));
+      
+      const newEndDate = now + ((numberOfDays+1) * SECONDS_IN_A_DAY);
+      const newEndDateString = getDateStringFromTimestamp(newEndDate);
+      // For debugging - print the date strings
+      if (debug) {
+        log({
+          currentDate: currentDateString,
+          liquidationDate: liquidationDateString,
+          currentTimestamp: midnightTimestamp, 
+          liquidationTimestamp: Number(lastLiquidationDate)
+        });
+      }
+      
+      const ix = await this.program.methods
+        .extendLoan(new BN(rawSolAmount), new BN(numberOfDays))
+        .accounts({ 
+          common: {
+            user,
+            mainState: this.mainState,
+            globalState: this.globalState,
+            dailyState: web3.PublicKey.findProgramAddressSync(
+            [Buffer.from("daily-stats"), Buffer.from(currentDateString)],
+            this.programId
+            )[0],
+            lastLiquidationDateState: web3.PublicKey.findProgramAddressSync(
+              [Buffer.from("daily-stats"), Buffer.from(liquidationDateString)],
+              this.programId
+            )[0],
+            
+            userLoan: web3.PublicKey.findProgramAddressSync(
+              [Buffer.from("user-loan"), user.toBuffer()],
+              this.programId
+            )[0],
+            feeReceiver,
+            token,
+            userAta,
+            tokenVaultOwner: this.vaultOwner,
+            tokenVault,
+            associatedTokenProgram,
+            tokenProgram,
+            systemProgram,
+          },
+          user,
+          systemProgram,
+          dailyStateOldEndDate: web3.PublicKey.findProgramAddressSync(
+            [Buffer.from("daily-stats"), Buffer.from(getDateStringFromTimestamp(Number(endDate)))],
+            this.programId
+          )[0],
+          dailyStateEndDate: web3.PublicKey.findProgramAddressSync(
+            [Buffer.from("daily-stats"), Buffer.from(newEndDateString)],
+            this.programId
+          )[0],
+        })
+        .instruction();
+      
+      const ixs = [
+        web3.ComputeBudgetProgram.setComputeUnitLimit({ units: 150_000 }),
+        ix,
+      ];
+      
+      const txSignature = await this.sendTx(ixs);
+      if (!txSignature) throw "failed to send tx";
+      return { isPass: true, info: { txSignature } };
+    } catch (extendLoanError) {
+      log({ extendLoanError });
+      return { isPass: false, info: "failed to extend loan" };
     }
   }
 }

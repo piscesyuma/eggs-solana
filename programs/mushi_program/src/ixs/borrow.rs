@@ -22,22 +22,19 @@ pub fn borrow(ctx:Context<ACommon>, sol_amount:u64, number_of_days: u64)->Result
     let is_expired = ctx.accounts.is_loan_expired()?;
     let user_mushi = ctx.accounts.sol_to_mushi_no_trade_ceil(sol_amount)?;
     let user_loan = &mut ctx.accounts.user_loan;
-    if number_of_days >= 366 {
-        return Err(MushiProgramError::InvalidNumberOfDays.into());
-    }
     
-    if sol_amount == 0 {
-        return Err(MushiProgramError::InvalidSolAmount.into());
-    }
+    require!(number_of_days < 366, MushiProgramError::InvalidNumberOfDays);
+    require!(sol_amount != 0, MushiProgramError::InvalidSolAmount);
+
     if is_expired {
         user_loan.borrowed = 0;
         user_loan.collateral = 0;
         user_loan.end_date = 0;
         user_loan.number_of_days = 0;
     }
-    if user_loan.borrowed != 0 {
-        return Err(MushiProgramError::InvalidLoanAmount.into());
-    }
+
+    require!(user_loan.borrowed == 0, MushiProgramError::InvalidLoanAmount);
+
     let global_state = &mut ctx.accounts.global_state;
     liquidate(
         &mut ctx.accounts.last_liquidation_date_state,
@@ -48,6 +45,7 @@ pub fn borrow(ctx:Context<ACommon>, sol_amount:u64, number_of_days: u64)->Result
         ctx.accounts.token_program.to_account_info(),
         *ctx.bumps.get("token_vault_owner").unwrap(),
     )?;
+
     let current_timestamp = Clock::get()?.unix_timestamp;
     let end_date = get_midnight_timestamp(current_timestamp + number_of_days as i64 * SECONDS_IN_A_DAY);
     let sol_fee = get_interest_fee(sol_amount, number_of_days);
@@ -69,10 +67,10 @@ pub fn borrow(ctx:Context<ACommon>, sol_amount:u64, number_of_days: u64)->Result
         None,
     )?;
     
-    if fee_address_fee <= MIN {
-        return Err(MushiProgramError::InvalidFeeAmount.into());
-    }
+    require!(fee_address_fee > MIN, MushiProgramError::InvalidFeeAmount);
+
     let signer_seeds:&[&[&[u8]]] = &[&[VAULT_SEED, &[*ctx.bumps.get("token_vault_owner").unwrap()]]];
+
     transfer_sol(
         ctx.accounts.token_vault_owner.to_account_info(), 
         ctx.accounts.user.to_account_info(), 

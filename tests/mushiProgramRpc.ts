@@ -393,6 +393,7 @@ export class MushiProgramRpc {
       
       // Get the date strings correctly formatted
       // const currentDateString = getDateStringFromTimestamp(midnightTimestamp);
+      const currentDateString = getCurrentDateString();
       const liquidationDateString = getDateStringFromTimestamp(Number(lastLiquidationDate));
       
       const ix = await this.program.methods
@@ -402,7 +403,11 @@ export class MushiProgramRpc {
           mainState: this.mainState,
           globalState: this.globalState,
           dailyState: web3.PublicKey.findProgramAddressSync(
-            [Buffer.from("daily-stats"), Buffer.from(getCurrentDateString())],
+            [Buffer.from("daily-stats"), Buffer.from(currentDateString)],
+            this.programId
+          )[0],
+          userLoan: web3.PublicKey.findProgramAddressSync(
+            [Buffer.from("user-loan"), user.toBuffer()],
             this.programId
           )[0],
           lastLiquidationDateState: web3.PublicKey.findProgramAddressSync(
@@ -417,7 +422,6 @@ export class MushiProgramRpc {
           associatedTokenProgram,
           tokenProgram,
           systemProgram,
-          referral: null,
         })
         .instruction();
       
@@ -466,7 +470,7 @@ export class MushiProgramRpc {
       const midnightTimestamp = now - (now % SECONDS_IN_A_DAY);
       
       // Get the date strings correctly formatted
-      // const currentDateString = getDateStringFromTimestamp(midnightTimestamp);
+      const currentDateString = getDateStringFromTimestamp(midnightTimestamp);
       const liquidationDateString = getDateStringFromTimestamp(Number(lastLiquidationDate));
       
       const ix = await this.program.methods
@@ -475,25 +479,31 @@ export class MushiProgramRpc {
           referralPubkey: referralPubkey
         })
         .accounts({
-          user,
-          mainState: this.mainState,
-          globalState: this.globalState,
-          dailyState: web3.PublicKey.findProgramAddressSync(
-            [Buffer.from("daily-stats"), Buffer.from(getCurrentDateString())],
-            this.programId
-          )[0],
-          lastLiquidationDateState: web3.PublicKey.findProgramAddressSync(
-            [Buffer.from("daily-stats"), Buffer.from(liquidationDateString)],
-            this.programId
-          )[0],
-          feeReceiver,
-          token,
-          userAta,
-          tokenVaultOwner: this.vaultOwner,
-          tokenVault,
-          associatedTokenProgram,
-          tokenProgram,
-          systemProgram,
+          common: {
+            user,
+            mainState: this.mainState,
+            globalState: this.globalState,
+            dailyState: web3.PublicKey.findProgramAddressSync(
+              [Buffer.from("daily-stats"), Buffer.from(currentDateString)],
+              this.programId
+            )[0],
+            userLoan: web3.PublicKey.findProgramAddressSync(
+              [Buffer.from("user-loan"), user.toBuffer()],
+              this.programId
+            )[0],
+            lastLiquidationDateState: web3.PublicKey.findProgramAddressSync(
+              [Buffer.from("daily-stats"), Buffer.from(liquidationDateString)],
+              this.programId
+            )[0],
+            feeReceiver,
+            token,
+            userAta,
+            tokenVaultOwner: this.vaultOwner,
+            tokenVault,
+            associatedTokenProgram,
+            tokenProgram,
+            systemProgram,
+          },
           referral: referralPubkey,
         })
         .instruction();
@@ -570,6 +580,10 @@ export class MushiProgramRpc {
             [Buffer.from("daily-stats"), Buffer.from(liquidationDateString)],
             this.programId
           )[0],
+          userLoan: web3.PublicKey.findProgramAddressSync(
+            [Buffer.from("user-loan"), user.toBuffer()],
+            this.programId
+          )[0],
           feeReceiver,
           token,
           userAta,
@@ -578,7 +592,6 @@ export class MushiProgramRpc {
           associatedTokenProgram,
           tokenProgram,
           systemProgram,
-          referral: null,
         })
         .instruction();
       
@@ -629,6 +642,8 @@ export class MushiProgramRpc {
       // Get the date strings correctly formatted
       const currentDateString = getDateStringFromTimestamp(midnightTimestamp);
       const liquidationDateString = getDateStringFromTimestamp(Number(lastLiquidationDate));
+      const endDate = now + (numberOfDays * SECONDS_IN_A_DAY);
+      const endDateString = getDateStringFromTimestamp(endDate);
       
       // For debugging - print the date strings
       if (debug) {
@@ -643,34 +658,38 @@ export class MushiProgramRpc {
       const ix = await this.program.methods
         .borrow(new BN(rawSolAmount), new BN(numberOfDays))
         .accounts({
+          common: {
+            user,
+            mainState: this.mainState,
+            globalState: this.globalState,
+            dailyState: web3.PublicKey.findProgramAddressSync(
+              [Buffer.from("daily-stats"), Buffer.from(currentDateString)],
+              this.programId
+            )[0],
+            lastLiquidationDateState: web3.PublicKey.findProgramAddressSync(
+              [Buffer.from("daily-stats"), Buffer.from(liquidationDateString)],
+              this.programId
+            )[0],
+            
+            userLoan: web3.PublicKey.findProgramAddressSync(
+              [Buffer.from("user-loan"), user.toBuffer()],
+              this.programId
+            )[0],
+            feeReceiver,
+            token,
+            userAta,
+            tokenVaultOwner: this.vaultOwner,
+            tokenVault,
+            associatedTokenProgram,
+            tokenProgram,
+            systemProgram,
+          },
           user,
-          mainState: this.mainState,
-          globalState: this.globalState,
-          dailyState: web3.PublicKey.findProgramAddressSync(
-            [Buffer.from("daily-stats"), Buffer.from(currentDateString)],
-            this.programId
-          )[0],
-          lastLiquidationDateState: web3.PublicKey.findProgramAddressSync(
-            [Buffer.from("daily-stats"), Buffer.from(liquidationDateString)],
-            this.programId
-          )[0],
-          dailyStateByDate: web3.PublicKey.findProgramAddressSync(
-            [Buffer.from("daily-stats"), Buffer.from(currentDateString)],
-            this.programId
-          )[0],
-          userLoan: web3.PublicKey.findProgramAddressSync(
-            [Buffer.from("user-loan"), user.toBuffer()],
-            this.programId
-          )[0],
-          feeReceiver,
-          token,
-          userAta,
-          tokenVaultOwner: this.vaultOwner,
-          tokenVault,
-          associatedTokenProgram,
-          tokenProgram,
           systemProgram,
-          referral: null,
+          dailyStateByDate: web3.PublicKey.findProgramAddressSync(
+            [Buffer.from("daily-stats"), Buffer.from(endDateString)],
+            this.programId
+          )[0],
         })
         .instruction();
       
@@ -762,7 +781,6 @@ export class MushiProgramRpc {
           associatedTokenProgram,
           tokenProgram,
           systemProgram,
-          referral: null,
         })
         .instruction();
       
@@ -853,7 +871,6 @@ export class MushiProgramRpc {
           associatedTokenProgram,
           tokenProgram,
           systemProgram,
-          referral: null,
         })
         .instruction();
       
@@ -944,7 +961,6 @@ export class MushiProgramRpc {
           associatedTokenProgram,
           tokenProgram,
           systemProgram,
-          referral: null,
         })
         .instruction();
       
@@ -1035,7 +1051,6 @@ export class MushiProgramRpc {
           associatedTokenProgram,
           tokenProgram,
           systemProgram,
-          referral: null,
         })
         .instruction();
       
@@ -1124,7 +1139,6 @@ export class MushiProgramRpc {
           associatedTokenProgram,
           tokenProgram,
           systemProgram,
-          referral: null,
         })
         .instruction();
       
@@ -1216,7 +1230,6 @@ export class MushiProgramRpc {
           associatedTokenProgram,
           tokenProgram,
           systemProgram,
-          referral: null,
         })
         .instruction();
       

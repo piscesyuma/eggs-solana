@@ -10,7 +10,6 @@ use crate::{
 };
 
 #[derive(Accounts)]
-#[instruction(date: i64)]
 pub struct ACommon<'info> {
     #[account(mut)]
     pub user: Signer<'info>,
@@ -51,17 +50,6 @@ pub struct ACommon<'info> {
     #[account(
         init_if_needed,
         payer = user,
-        space = 8 + DailyStats::MAX_SIZE,
-        seeds = [
-            b"daily-stats".as_ref(),
-            get_date_string_from_timestamp(date).as_bytes()
-        ],
-        bump
-    )]
-    pub daily_state_by_date: Box<Account<'info, DailyStats>>,
-    #[account(
-        init_if_needed,
-        payer = user,
         space = 8 + UserLoan::MAX_SIZE,
         seeds = [
             b"user-loan".as_ref(),
@@ -93,9 +81,6 @@ pub struct ACommon<'info> {
         bump,
     )]
     pub token_vault_owner: SystemAccount<'info>,
-    
-    #[account(mut)]
-    pub referral: Option<UncheckedAccount<'info>>,
     
     #[account(
         mut,
@@ -176,9 +161,52 @@ impl<'info> ACommon<'info> {
         let current_date = Clock::get()?.unix_timestamp;
         Ok(end_date < current_date)
     }
+    
+    pub fn leverage_fee(&self, sol_amount: u64, number_of_days: u64) -> Result<u64> {
+        let buy_fee_leverage = self.main_state.buy_fee_leverage;
+        let mint_fee = sol_amount.checked_mul(buy_fee_leverage).unwrap().checked_div(FEE_BASE_1000).unwrap();
+        let interest = get_interest_fee(sol_amount, number_of_days);
+        Ok(mint_fee.checked_add(interest).unwrap())
+    }
+}
+
+#[derive(Accounts)]
+pub struct ACommonExtReferral<'info> {
+    pub common: ACommon<'info>, // Embed the existing ACommon struct
+    
+    #[account(mut)]
+    pub referral: Option<UncheckedAccount<'info>>,
+}
+
+impl<'info> ACommonExtReferral<'info> {
+}
+
+#[derive(Accounts)]
+#[instruction(date: i64)]
+pub struct ACommonExtLoan<'info> {
+    pub common: ACommon<'info>, // Embed the existing ACommon struct
+    
+    #[account(mut)]
+    pub user: Signer<'info>,
+    
+    #[account(
+        init_if_needed,
+        payer = user,
+        space = 8 + DailyStats::MAX_SIZE,
+        seeds = [
+            b"daily-stats".as_ref(),
+            get_date_string_from_timestamp(date).as_bytes()
+        ],
+        bump
+    )]
+    pub daily_state_by_date: Box<Account<'info, DailyStats>>, 
+    pub system_program: Program<'info, System>,
+}
+
+impl<'info> ACommonExtLoan<'info> {
     pub fn add_loans_by_date(&mut self, borrowed: u64, collateral: u64, date: i64) -> Result<()> {
         let daily_state = &mut self.daily_state_by_date;
-        let global_state = &mut self.global_state;
+        let global_state = &mut self.common.global_state;
         daily_state.borrowed += borrowed;
         daily_state.collateral += collateral;
         global_state.total_borrowed += borrowed;
@@ -187,17 +215,12 @@ impl<'info> ACommon<'info> {
     }
     pub fn sub_loans_by_date(&mut self, borrowed: u64, collateral: u64, date: i64) -> Result<()> {
         let daily_state = &mut self.daily_state_by_date;
-        let global_state = &mut self.global_state;
+        let global_state = &mut self.common.global_state;
         daily_state.borrowed -= borrowed;
         daily_state.collateral -= collateral;
         global_state.total_borrowed -= borrowed;
         global_state.total_collateral -= collateral;
         Ok(())
     }
-    pub fn leverage_fee(&self, sol_amount: u64, number_of_days: u64) -> Result<u64> {
-        let buy_fee_leverage = self.main_state.buy_fee_leverage;
-        let mint_fee = sol_amount.checked_mul(buy_fee_leverage).unwrap().checked_div(FEE_BASE_1000).unwrap();
-        let interest = get_interest_fee(sol_amount, number_of_days);
-        Ok(mint_fee.checked_add(interest).unwrap())
-    }
 }
+

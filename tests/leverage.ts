@@ -1,0 +1,70 @@
+import * as anchor from "@coral-xyz/anchor";
+import { web3 } from "@coral-xyz/anchor";
+import { Program } from "@coral-xyz/anchor";
+import { MushiProgram } from "../target/types/mushi_program";
+import { MainStateInfo, GlobalStateInfo, sleep, MushiProgramRpc, getCurrentDateString } from "./mushiProgramRpc";
+
+const log = console.log;
+describe("mushi_program_leverage", () => {
+  // Configure the client to use the local cluster.
+  anchor.setProvider(anchor.AnchorProvider.env());
+  const provider = anchor.AnchorProvider.env();
+  const connection = provider.connection;
+  const rpc = connection.rpcEndpoint;
+  const programId = new web3.PublicKey(
+    "HF5x1bCgynzEnBL7ATMFYPNFjBaqfxgMASyUJL2ud6Xi"
+  );
+  let mainStateInfo: MainStateInfo | null = null;
+  let globalInfo: GlobalStateInfo | null = null;
+  const connectivity = new MushiProgramRpc({
+    rpc,
+    wallet: provider.wallet,
+    programId,
+  });
+  const user = provider.publicKey;
+
+  // Parameters for the leverage operation
+  const solAmount = 1; // Amount of SOL to leverage
+  const numberOfDays = 7; // Loan duration in days
+
+  it("Get initial state info", async () => {
+    mainStateInfo = await connectivity.getMainStateInfo();
+    if (!mainStateInfo) throw "Failed to get main state info";
+    log({ mainStateInfo });
+
+    globalInfo = await connectivity.getGlobalInfo();
+    log({ globalInfo });
+
+    if (!globalInfo) throw "Failed to get global state info";
+
+    // Check if the protocol has been started
+    if (!globalInfo.started) {
+      log("The protocol has not been started yet. Please run the start test first.");
+      return;
+    }
+    
+    // Log the current date string for reference
+    log(`Current date: ${getCurrentDateString()}`);
+  });
+
+  it("Create leveraged position", async () => {
+    if (!globalInfo) throw "Global state info is not available";
+
+    // Perform the leverage operation with debug=true to show date strings
+    const leverageRes = await connectivity.leverage(solAmount, numberOfDays, true);
+    if (!leverageRes.isPass) throw "Failed to create leveraged position";
+    
+    log({ leverageRes: leverageRes.info });
+
+    // Wait for the transaction to be processed
+    await sleep(10_000);
+    
+    // Verify the operation by getting updated state
+    const updatedGlobalInfo = await connectivity.getGlobalInfo();
+    if (!updatedGlobalInfo) throw "Failed to get updated global state info";
+    log({ updatedGlobalInfo });
+    
+    // Log the transaction was successful
+    log("Successfully created leveraged position");
+  });
+}); 

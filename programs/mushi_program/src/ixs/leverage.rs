@@ -4,38 +4,30 @@ use anchor_spl::{associated_token::AssociatedToken, token_interface};
 use crate::{
     constants::{
         FEES_BUY, FEES_SELL, FEE_BASE_1000, MIN, SECONDS_IN_A_DAY, VAULT_SEED
-    }, 
-    error::MushiProgramError, 
-    utils::{
-        burn_tokens, 
-        get_interest_fee, 
-        get_midnight_timestamp, 
-        liquidate, 
-        mint_to_tokens_by_main_state, 
-        transfer_tokens, 
-        transfer_sol
-    },
+    }, context::ACommonExtLoan, error::MushiProgramError, utils::{
+        burn_tokens, get_interest_fee, get_midnight_timestamp, liquidate, mint_to_tokens_by_main_state, transfer_sol, transfer_tokens
+    }
 };
 use crate::context::common::ACommon;
 
-pub fn leverage(ctx:Context<ACommon>, sol_amount:u64, number_of_days: u64)->Result<()>{
-    let is_started = ctx.accounts.global_state.started;
+pub fn leverage(ctx:Context<ACommonExtLoan>, sol_amount:u64, number_of_days: u64)->Result<()>{
+    let is_started = ctx.accounts.common.global_state.started;
     if !is_started {
         return Err(MushiProgramError::NotStarted.into());
     }
     if number_of_days >= 366 {
         return Err(MushiProgramError::InvalidNumberOfDays.into());
     }
-    let is_expired = ctx.accounts.is_loan_expired()?;
-    let sol_fee = ctx.accounts.leverage_fee(sol_amount, number_of_days)?;
-    let global_state = &mut ctx.accounts.global_state;
+    let is_expired = ctx.accounts.common.is_loan_expired()?;
+    let sol_fee = ctx.accounts.common.leverage_fee(sol_amount, number_of_days)?;
+    let global_state = &mut ctx.accounts.common.global_state;
     liquidate(
-        &mut ctx.accounts.last_liquidation_date_state,
+        &mut ctx.accounts.common.last_liquidation_date_state,
         global_state,
-        ctx.accounts.token_vault.to_account_info(),
-        ctx.accounts.token.to_account_info(),
-        ctx.accounts.token_vault_owner.to_account_info(),
-        ctx.accounts.token_program.to_account_info(),
+        ctx.accounts.common.token_vault.to_account_info(),
+        ctx.accounts.common.token.to_account_info(),
+        ctx.accounts.common.token_vault_owner.to_account_info(),
+        ctx.accounts.common.token_program.to_account_info(),
         *ctx.bumps.get("token_vault_owner").unwrap(),
     )?;
     let current_timestamp = Clock::get()?.unix_timestamp;
@@ -53,9 +45,9 @@ pub fn leverage(ctx:Context<ACommon>, sol_amount:u64, number_of_days: u64)->Resu
     if sol_amount > total_fee {
         fee_overage = sol_amount.checked_sub(total_fee).unwrap();
         transfer_sol(
-            ctx.accounts.token_vault_owner.to_account_info(),
+            ctx.accounts.common.token_vault_owner.to_account_info(),
             ctx.accounts.user.to_account_info(),
-            ctx.accounts.system_program.to_account_info(),
+            ctx.accounts.common.system_program.to_account_info(),
             fee_overage,
             Some(signer_seeds)
         )?;
@@ -64,12 +56,12 @@ pub fn leverage(ctx:Context<ACommon>, sol_amount:u64, number_of_days: u64)->Resu
         return Err(MushiProgramError::InvalidFeeAmount.into());
     }
     
-    let user_mushi = ctx.accounts.sol_to_mushi_lev(user_sol, sub_value)?;
+    let user_mushi = ctx.accounts.common.sol_to_mushi_lev(user_sol, sub_value)?;
     mint_to_tokens_by_main_state(
-        ctx.accounts.token.to_account_info(),
-        ctx.accounts.main_state.to_account_info(),
-        ctx.accounts.token_vault.to_account_info(),
-        ctx.accounts.token_program.to_account_info(),
+        ctx.accounts.common.token.to_account_info(),
+        ctx.accounts.common.main_state.to_account_info(),
+        ctx.accounts.common.token_vault.to_account_info(),
+        ctx.accounts.common.token_program.to_account_info(),
         user_mushi,
         *ctx.bumps.get("main_state").unwrap(),
     )?;
@@ -79,14 +71,14 @@ pub fn leverage(ctx:Context<ACommon>, sol_amount:u64, number_of_days: u64)->Resu
     }
     let signer_seeds:&[&[&[u8]]] = &[&[VAULT_SEED, &[*ctx.bumps.get("token_vault_owner").unwrap()]]];
     transfer_sol(
-        ctx.accounts.token_vault_owner.to_account_info(),
-        ctx.accounts.fee_receiver.to_account_info(),
-        ctx.accounts.system_program.to_account_info(),
+        ctx.accounts.common.token_vault_owner.to_account_info(),
+        ctx.accounts.common.fee_receiver.to_account_info(),
+        ctx.accounts.common.system_program.to_account_info(),
         fee_address_amount,
         Some(signer_seeds)
     )?;
     ctx.accounts.add_loans_by_date(user_borrow, user_mushi, end_date)?;
-    let user_loan = &mut ctx.accounts.user_loan;
+    let user_loan = &mut ctx.accounts.common.user_loan;
  
     if user_loan.borrowed != 0 {
         if is_expired {
@@ -103,7 +95,7 @@ pub fn leverage(ctx:Context<ACommon>, sol_amount:u64, number_of_days: u64)->Resu
     user_loan.collateral = user_mushi;
     user_loan.end_date = end_date;
     user_loan.number_of_days = number_of_days;
-    ctx.accounts.safety_check()?;
+    ctx.accounts.common.safety_check()?;
     
     Ok(())
 }

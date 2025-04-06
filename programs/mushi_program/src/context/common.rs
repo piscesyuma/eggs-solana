@@ -2,11 +2,7 @@ use anchor_lang::prelude::*;
 use anchor_spl::{associated_token::AssociatedToken, token_interface};
 
 use crate::{
-    constants::{FEE_BASE_1000, VAULT_SEED}, 
-    error::MushiProgramError, 
-    state::{UserLoan, GlobalStats, MainState},
-    DailyStats, 
-    utils::{get_date_from_timestamp, get_date_string_from_timestamp, get_interest_fee}, 
+    constants::{FEE_BASE_1000, SECONDS_IN_A_DAY, VAULT_SEED}, error::MushiProgramError, state::{GlobalStats, MainState, UserLoan}, utils::{get_date_from_timestamp, get_date_string_from_timestamp, get_interest_fee}, DailyStats 
 };
 
 #[derive(Accounts)]
@@ -182,7 +178,7 @@ impl<'info> ACommonExtReferral<'info> {
 }
 
 #[derive(Accounts)]
-#[instruction(date: i64)]
+#[instruction(number_of_days: i64)]
 pub struct ACommonExtLoan<'info> {
     pub common: ACommon<'info>, // Embed the existing ACommon struct
     
@@ -195,17 +191,62 @@ pub struct ACommonExtLoan<'info> {
         space = 8 + DailyStats::MAX_SIZE,
         seeds = [
             b"daily-stats".as_ref(),
-            get_date_string_from_timestamp(date).as_bytes()
+            get_date_string_from_timestamp(Clock::get()?.unix_timestamp + number_of_days * SECONDS_IN_A_DAY).as_bytes()
         ],
         bump
     )]
-    pub daily_state_by_date: Box<Account<'info, DailyStats>>, 
+    pub daily_state_end_date: Box<Account<'info, DailyStats>>, 
     pub system_program: Program<'info, System>,
 }
 
 impl<'info> ACommonExtLoan<'info> {
-    pub fn add_loans_by_date(&mut self, borrowed: u64, collateral: u64, date: i64) -> Result<()> {
-        let daily_state = &mut self.daily_state_by_date;
+    pub fn add_loans_by_date(&mut self, borrowed: u64, collateral: u64) -> Result<()> {
+        let daily_state = &mut self.daily_state_end_date;
+        let global_state = &mut self.common.global_state;
+        daily_state.borrowed += borrowed;
+        daily_state.collateral += collateral;
+        global_state.total_borrowed += borrowed;
+        global_state.total_collateral += collateral;
+        Ok(())
+    }
+    
+}
+
+#[derive(Accounts)]
+#[instruction(number_of_days: i64)]
+pub struct ACommonExtLoan2<'info> {
+    pub common: ACommon<'info>, // Embed the existing ACommon struct
+    
+    #[account(mut)]
+    pub user: Signer<'info>,
+    
+    #[account(
+        seeds = [
+            b"daily-stats".as_ref(),
+            get_date_string_from_timestamp(common.user_loan.end_date).as_bytes()
+        ],
+        bump
+    )]
+    pub daily_state_old_end_date: Box<Account<'info, DailyStats>>, 
+
+    #[account(
+        init_if_needed,
+        payer = user,
+        space = 8 + DailyStats::MAX_SIZE,
+        seeds = [
+            b"daily-stats".as_ref(),
+            get_date_string_from_timestamp(Clock::get()?.unix_timestamp + number_of_days * SECONDS_IN_A_DAY).as_bytes()
+        ],
+        bump
+    )]
+    pub daily_state_end_date: Box<Account<'info, DailyStats>>, 
+    pub system_program: Program<'info, System>,
+}
+
+
+impl<'info> ACommonExtLoan2<'info> {
+    pub fn add_loans_by_date(&mut self, borrowed: u64, collateral: u64) -> Result<()> {
+        let daily_state = &mut self.daily_state_end_date;
         let global_state = &mut self.common.global_state;
         daily_state.borrowed += borrowed;
         daily_state.collateral += collateral;
@@ -214,7 +255,7 @@ impl<'info> ACommonExtLoan<'info> {
         Ok(())
     }
     pub fn sub_loans_by_date(&mut self, borrowed: u64, collateral: u64, date: i64) -> Result<()> {
-        let daily_state = &mut self.daily_state_by_date;
+        let daily_state = &mut self.daily_state_old_end_date;
         let global_state = &mut self.common.global_state;
         daily_state.borrowed -= borrowed;
         daily_state.collateral -= collateral;
@@ -224,3 +265,30 @@ impl<'info> ACommonExtLoan<'info> {
     }
 }
 
+
+#[derive(Accounts)]
+pub struct ACommonExtSubLoan<'info> {
+    pub common: ACommon<'info>, // Embed the existing ACommon struct
+    
+    #[account(
+        seeds = [
+            b"daily-stats".as_ref(),
+            get_date_string_from_timestamp(common.user_loan.end_date).as_bytes()
+        ],
+        bump
+    )]
+    pub daily_state_old_end_date: Box<Account<'info, DailyStats>>, 
+}
+
+
+impl<'info> ACommonExtSubLoan<'info> {
+    pub fn sub_loans_by_date(&mut self, borrowed: u64, collateral: u64, date: i64) -> Result<()> {
+        let daily_state = &mut self.daily_state_old_end_date;
+        let global_state = &mut self.common.global_state;
+        daily_state.borrowed -= borrowed;
+        daily_state.collateral -= collateral;
+        global_state.total_borrowed -= borrowed;
+        global_state.total_collateral -= collateral;
+        Ok(())
+    }
+}

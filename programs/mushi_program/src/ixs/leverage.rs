@@ -10,7 +10,7 @@ use crate::{
 };
 use crate::context::common::ACommon;
 
-pub fn leverage(ctx:Context<ACommonExtLoan>, sol_amount:u64, number_of_days: u64)->Result<()>{
+pub fn leverage(ctx:Context<ACommonExtLoan>, number_of_days: u64, sol_amount:u64)->Result<()>{
     let is_started = ctx.accounts.common.global_state.started;
     if !is_started {
         return Err(MushiProgramError::NotStarted.into());
@@ -77,7 +77,7 @@ pub fn leverage(ctx:Context<ACommonExtLoan>, sol_amount:u64, number_of_days: u64
         fee_address_amount,
         Some(signer_seeds)
     )?;
-    ctx.accounts.add_loans_by_date(user_borrow, user_mushi, end_date)?;
+    ctx.accounts.add_loans_by_date( user_borrow, user_mushi)?;
     let user_loan = &mut ctx.accounts.common.user_loan;
  
     if user_loan.borrowed != 0 {

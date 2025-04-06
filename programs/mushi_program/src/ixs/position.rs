@@ -4,13 +4,13 @@ use anchor_spl::{associated_token::AssociatedToken, token_interface};
 use crate::{
     constants::{
         FEES_BUY, FEES_SELL, FEE_BASE_1000, MIN, SECONDS_IN_A_DAY, VAULT_SEED
-    }, context::ACommonExtLoan, error::MushiProgramError, utils::{
+    }, context::{ACommonExtLoan, ACommonExtLoan2, ACommonExtSubLoan}, error::MushiProgramError, utils::{
         burn_tokens, get_interest_fee, get_midnight_timestamp, liquidate, mint_to_tokens_by_main_state, transfer_sol, transfer_tokens
     }
 };
 use crate::context::common::ACommon;
 
-pub fn close_position(ctx:Context<ACommonExtLoan>, sol_amount: u64)->Result<()>{
+pub fn close_position(ctx:Context<ACommonExtSubLoan>, sol_amount: u64)->Result<()>{
     let user_loan = & ctx.accounts.common.user_loan;
     let borrowed = user_loan.borrowed;
     let collateral = user_loan.collateral;
@@ -41,7 +41,7 @@ pub fn close_position(ctx:Context<ACommonExtLoan>, sol_amount: u64)->Result<()>{
     Ok(())
 }
 
-pub fn flash_close_position(ctx:Context<ACommonExtLoan>)->Result<()>{
+pub fn flash_close_position(ctx:Context<ACommonExtSubLoan>)->Result<()>{
     if ctx.accounts.common.is_loan_expired()? {
         return Err(MushiProgramError::LoanExpired.into());
     }
@@ -78,7 +78,7 @@ pub fn flash_close_position(ctx:Context<ACommonExtLoan>)->Result<()>{
     let fee_address_fee = fee.checked_mul(3).unwrap().checked_div(10).unwrap();
     transfer_sol(
         ctx.accounts.common.token_vault_owner.to_account_info(),
-        ctx.accounts.user.to_account_info(),
+        ctx.accounts.common.user.to_account_info(),
         ctx.accounts.common.system_program.to_account_info(),
         to_user,
         Some(signer_seeds)

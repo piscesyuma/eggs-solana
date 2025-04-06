@@ -4,13 +4,13 @@ use anchor_spl::{associated_token::AssociatedToken, token_interface};
 use crate::{
     constants::{
         FEES_BUY, FEES_SELL, FEE_BASE_1000, MIN, SECONDS_IN_A_DAY, VAULT_SEED
-    }, context::ACommonExtLoan, error::MushiProgramError, utils::{
+    }, context::{ACommonExtLoan, ACommonExtLoan2}, error::MushiProgramError, utils::{
         burn_tokens, get_interest_fee, get_midnight_timestamp, liquidate, mint_to_tokens_by_main_state, transfer_sol, transfer_tokens
     }
 };
 use crate::context::common::ACommon;
 
-pub fn extend_loan(ctx:Context<ACommonExtLoan>, sol_amount: u64,number_of_days: u64)->Result<()>{
+pub fn extend_loan(ctx:Context<ACommonExtLoan2>, number_of_days: u64, sol_amount: u64)->Result<()>{
     let user_loan = & ctx.accounts.common.user_loan;
     let old_end_date = user_loan.end_date;
     let _number_of_days = user_loan.number_of_days;
@@ -37,7 +37,7 @@ pub fn extend_loan(ctx:Context<ACommonExtLoan>, sol_amount: u64,number_of_days: 
         fee_address_fee, 
         Some(signer_seeds))?;
     ctx.accounts.sub_loans_by_date(borrowed, collateral, old_end_date)?;
-    ctx.accounts.add_loans_by_date(borrowed, collateral, new_end_date)?;
+    ctx.accounts.add_loans_by_date(borrowed, collateral)?;
     let user_loan = &mut ctx.accounts.common.user_loan;
     user_loan.end_date = new_end_date;
     user_loan.number_of_days = number_of_days + _number_of_days;

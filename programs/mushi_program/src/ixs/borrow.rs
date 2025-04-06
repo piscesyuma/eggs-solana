@@ -10,7 +10,7 @@ use crate::{
 };
 use crate::context::common::ACommon;
 
-pub fn borrow(ctx:Context<ACommonExtLoan>, sol_amount:u64, number_of_days: u64)->Result<()>{
+pub fn borrow(ctx:Context<ACommonExtLoan>, number_of_days: u64, sol_amount:u64)->Result<()>{
     let is_expired = ctx.accounts.common.is_loan_expired()?;
     let user_mushi = ctx.accounts.common.sol_to_mushi_no_trade_ceil(sol_amount)?;
     let user_loan = &mut ctx.accounts.common.user_loan;
@@ -75,7 +75,8 @@ pub fn borrow(ctx:Context<ACommonExtLoan>, sol_amount:u64, number_of_days: u64)-
     ctx.accounts.common.system_program.to_account_info(), 
     fee_address_fee, 
     Some(signer_seeds))?;
-    ctx.accounts.add_loans_by_date(new_user_borrow, user_mushi, end_date)?;
+
+    ctx.accounts.add_loans_by_date( new_user_borrow, user_mushi)?;
     ctx.accounts.common.safety_check()?;
     Ok(())
 }
@@ -104,7 +105,7 @@ pub fn borrow_more(ctx:Context<ACommonExtLoan>, sol_amount:u64)->Result<()>{
     let user_borrowed = user_loan.borrowed;
     let user_collateral = user_loan.collateral;
     let user_end_date = user_loan.end_date;
-
+    
     let today_midnight = get_midnight_timestamp(Clock::get()?.unix_timestamp);
     let new_borrow_length = (user_end_date - today_midnight) / SECONDS_IN_A_DAY;
     let sol_fee = get_interest_fee(sol_amount, new_borrow_length as u64);
@@ -157,7 +158,7 @@ pub fn borrow_more(ctx:Context<ACommonExtLoan>, sol_amount:u64)->Result<()>{
     ctx.accounts.common.system_program.to_account_info(), 
     fee_address_fee, 
     Some(signer_seeds))?;
-    ctx.accounts.add_loans_by_date(new_user_borrow, require_collateral_from_user, user_end_date)?;
+    ctx.accounts.add_loans_by_date( new_user_borrow, require_collateral_from_user)?;
     ctx.accounts.common.safety_check()?;
     Ok(())
 }

@@ -44,6 +44,11 @@ export type GlobalStateInfo = {
   token: web3.PublicKey;
   started: boolean;
 };
+export type UserLoanInfo = {
+  endDate: string;
+  borrowed: number;
+  collateral: number;
+};
 
 /**
  * Converts a Unix timestamp to YYYY-MM-DD format
@@ -238,6 +243,25 @@ export class MushiProgramRpc {
       };
     } catch (getGlobalStateInfoError) {
       log({ getGlobalStateInfoError });
+      return null;
+    }
+  }
+
+  async getUserLoanInfo(user: web3.PublicKey): Promise<UserLoanInfo | null> {
+    try {
+      const userLoanAddress = web3.PublicKey.findProgramAddressSync(
+        [Buffer.from("user-loan"), user.toBuffer()],
+        this.programId
+      )[0];
+
+      const userLoanData = await this.program.account.userLoan.fetch(userLoanAddress);
+      return {
+        endDate: userLoanData.endDate.toString(),
+        borrowed: Number(userLoanData.borrowed.toString()),
+        collateral: Number(userLoanData.collateral.toString()),
+      };
+    } catch (getUserLoanInfoError) {
+      log({ getUserLoanInfoError });
       return null;
     }
   }
@@ -656,7 +680,7 @@ export class MushiProgramRpc {
       }
       
       const ix = await this.program.methods
-        .borrow(new BN(rawSolAmount), new BN(numberOfDays))
+        .borrow(new BN(numberOfDays), new BN(rawSolAmount))
         .accounts({
           common: {
             user,
@@ -686,7 +710,7 @@ export class MushiProgramRpc {
           },
           user,
           systemProgram,
-          dailyStateByDate: web3.PublicKey.findProgramAddressSync(
+          dailyStateEndDate: web3.PublicKey.findProgramAddressSync(
             [Buffer.from("daily-stats"), Buffer.from(endDateString)],
             this.programId
           )[0],
@@ -741,6 +765,9 @@ export class MushiProgramRpc {
       const currentDateString = getDateStringFromTimestamp(midnightTimestamp);
       const liquidationDateString = getDateStringFromTimestamp(Number(lastLiquidationDate));
       
+      const endDate = now + (numberOfDays * SECONDS_IN_A_DAY);
+      const endDateString = getDateStringFromTimestamp(endDate);
+
       // For debugging - print the date strings
       if (debug) {
         log({
@@ -754,36 +781,39 @@ export class MushiProgramRpc {
       const ix = await this.program.methods
         .leverage(new BN(rawSolAmount), new BN(numberOfDays))
         .accounts({
+          common: {
+            user,
+            mainState: this.mainState,
+            globalState: this.globalState,
+            dailyState: web3.PublicKey.findProgramAddressSync(
+            [Buffer.from("daily-stats"), Buffer.from(currentDateString)],
+              this.programId
+            )[0],
+            lastLiquidationDateState: web3.PublicKey.findProgramAddressSync(
+              [Buffer.from("daily-stats"), Buffer.from(liquidationDateString)],
+              this.programId
+            )[0],
+            userLoan: web3.PublicKey.findProgramAddressSync(
+              [Buffer.from("user-loan"), user.toBuffer()],
+              this.programId
+            )[0],
+            feeReceiver,
+            token,
+            userAta,
+            tokenVaultOwner: this.vaultOwner,
+            tokenVault,
+            associatedTokenProgram,
+            tokenProgram,
+            systemProgram,
+          },
           user,
-          mainState: this.mainState,
-          globalState: this.globalState,
-          dailyState: web3.PublicKey.findProgramAddressSync(
-            [Buffer.from("daily-stats"), Buffer.from(currentDateString)],
-            this.programId
-          )[0],
-          lastLiquidationDateState: web3.PublicKey.findProgramAddressSync(
-            [Buffer.from("daily-stats"), Buffer.from(liquidationDateString)],
-            this.programId
-          )[0],
-          dailyStateByDate: web3.PublicKey.findProgramAddressSync(
-            [Buffer.from("daily-stats"), Buffer.from(currentDateString)],
-            this.programId
-          )[0],
-          userLoan: web3.PublicKey.findProgramAddressSync(
-            [Buffer.from("user-loan"), user.toBuffer()],
-            this.programId
-          )[0],
-          feeReceiver,
-          token,
-          userAta,
-          tokenVaultOwner: this.vaultOwner,
-          tokenVault,
-          associatedTokenProgram,
-          tokenProgram,
           systemProgram,
+          dailyStateEndDate: web3.PublicKey.findProgramAddressSync(
+            [Buffer.from("daily-stats"), Buffer.from(endDateString)],
+            this.programId
+          )[0],
         })
         .instruction();
-      
       const ixs = [
         web3.ComputeBudgetProgram.setComputeUnitLimit({ units: 150_000 }),
         ix,
@@ -809,6 +839,10 @@ export class MushiProgramRpc {
       const mainStateInfo = await this.getMainStateInfo();
       if (!mainStateInfo) throw "Failed to get main state info";
       const { feeReceiver } = mainStateInfo;
+
+      const userLoanInfo = await this.getUserLoanInfo(this.provider.publicKey);
+      if (!userLoanInfo) throw "Failed to get user loan info";
+      const { endDate } = userLoanInfo;
 
       // Get the global state directly to access last_liquidation_date
       const globalState = await this.program.account.globalStats.fetch(this.globalState);
@@ -844,36 +878,37 @@ export class MushiProgramRpc {
       const ix = await this.program.methods
         .repay(new BN(rawSolAmount))
         .accounts({
-          user,
-          mainState: this.mainState,
-          globalState: this.globalState,
-          dailyState: web3.PublicKey.findProgramAddressSync(
+          common: {
+            user,
+            mainState: this.mainState,
+            globalState: this.globalState,
+            dailyState: web3.PublicKey.findProgramAddressSync(
             [Buffer.from("daily-stats"), Buffer.from(currentDateString)],
+              this.programId
+            )[0],
+            lastLiquidationDateState: web3.PublicKey.findProgramAddressSync(
+              [Buffer.from("daily-stats"), Buffer.from(liquidationDateString)],
+              this.programId
+            )[0],
+            userLoan: web3.PublicKey.findProgramAddressSync(
+              [Buffer.from("user-loan"), user.toBuffer()],
+              this.programId
+            )[0],
+            feeReceiver,
+            token,
+            userAta,
+            tokenVaultOwner: this.vaultOwner,
+            tokenVault,
+            associatedTokenProgram,
+            tokenProgram,
+            systemProgram,
+          },
+          dailyStateOldEndDate: web3.PublicKey.findProgramAddressSync(
+            [Buffer.from("daily-stats"), Buffer.from(getDateStringFromTimestamp(Number(endDate)))],
             this.programId
           )[0],
-          lastLiquidationDateState: web3.PublicKey.findProgramAddressSync(
-            [Buffer.from("daily-stats"), Buffer.from(liquidationDateString)],
-            this.programId
-          )[0],
-          dailyStateByDate: web3.PublicKey.findProgramAddressSync(
-            [Buffer.from("daily-stats"), Buffer.from(currentDateString)],
-            this.programId
-          )[0],
-          userLoan: web3.PublicKey.findProgramAddressSync(
-            [Buffer.from("user-loan"), user.toBuffer()],
-            this.programId
-          )[0],
-          feeReceiver,
-          token,
-          userAta,
-          tokenVaultOwner: this.vaultOwner,
-          tokenVault,
-          associatedTokenProgram,
-          tokenProgram,
-          systemProgram,
         })
         .instruction();
-      
       const ixs = [
         web3.ComputeBudgetProgram.setComputeUnitLimit({ units: 150_000 }),
         ix,
@@ -900,6 +935,10 @@ export class MushiProgramRpc {
       if (!mainStateInfo) throw "Failed to get main state info";
       const { feeReceiver } = mainStateInfo;
 
+      const userLoanInfo = await this.getUserLoanInfo(this.provider.publicKey);
+      if (!userLoanInfo) throw "Failed to get user loan info";
+      const { endDate } = userLoanInfo;
+      
       // Get the global state directly to access last_liquidation_date
       const globalState = await this.program.account.globalStats.fetch(this.globalState);
       const lastLiquidationDate = globalState.lastLiquidationDate;
@@ -934,33 +973,35 @@ export class MushiProgramRpc {
       const ix = await this.program.methods
         .removeCollateral(new BN(rawAmount))
         .accounts({
-          user,
-          mainState: this.mainState,
-          globalState: this.globalState,
-          dailyState: web3.PublicKey.findProgramAddressSync(
+          common: {
+            user,
+            mainState: this.mainState,
+            globalState: this.globalState,
+            dailyState: web3.PublicKey.findProgramAddressSync(
             [Buffer.from("daily-stats"), Buffer.from(currentDateString)],
+              this.programId
+            )[0],
+            lastLiquidationDateState: web3.PublicKey.findProgramAddressSync(
+              [Buffer.from("daily-stats"), Buffer.from(liquidationDateString)],
+              this.programId
+            )[0],
+            userLoan: web3.PublicKey.findProgramAddressSync(
+              [Buffer.from("user-loan"), user.toBuffer()],
+              this.programId
+            )[0],
+            feeReceiver,
+            token,
+            userAta,
+            tokenVaultOwner: this.vaultOwner,
+            tokenVault,
+            associatedTokenProgram,
+            tokenProgram,
+            systemProgram,
+          },
+          dailyStateOldEndDate: web3.PublicKey.findProgramAddressSync(
+            [Buffer.from("daily-stats"), Buffer.from(getDateStringFromTimestamp(Number(endDate)))],
             this.programId
           )[0],
-          lastLiquidationDateState: web3.PublicKey.findProgramAddressSync(
-            [Buffer.from("daily-stats"), Buffer.from(liquidationDateString)],
-            this.programId
-          )[0],
-          dailyStateByDate: web3.PublicKey.findProgramAddressSync(
-            [Buffer.from("daily-stats"), Buffer.from(currentDateString)],
-            this.programId
-          )[0],
-          userLoan: web3.PublicKey.findProgramAddressSync(
-            [Buffer.from("user-loan"), user.toBuffer()],
-            this.programId
-          )[0],
-          feeReceiver,
-          token,
-          userAta,
-          tokenVaultOwner: this.vaultOwner,
-          tokenVault,
-          associatedTokenProgram,
-          tokenProgram,
-          systemProgram,
         })
         .instruction();
       
@@ -989,6 +1030,10 @@ export class MushiProgramRpc {
       const mainStateInfo = await this.getMainStateInfo();
       if (!mainStateInfo) throw "Failed to get main state info";
       const { feeReceiver } = mainStateInfo;
+
+      const userLoanInfo = await this.getUserLoanInfo(this.provider.publicKey);
+      if (!userLoanInfo) throw "Failed to get user loan info";
+      const { endDate } = userLoanInfo;
 
       // Get the global state directly to access last_liquidation_date
       const globalState = await this.program.account.globalStats.fetch(this.globalState);
@@ -1024,33 +1069,35 @@ export class MushiProgramRpc {
       const ix = await this.program.methods
         .closePosition(new BN(rawSolAmount))
         .accounts({
-          user,
-          mainState: this.mainState,
-          globalState: this.globalState,
-          dailyState: web3.PublicKey.findProgramAddressSync(
+          common: {
+            user,
+            mainState: this.mainState,
+            globalState: this.globalState,
+            dailyState: web3.PublicKey.findProgramAddressSync(
             [Buffer.from("daily-stats"), Buffer.from(currentDateString)],
+              this.programId
+            )[0],
+            lastLiquidationDateState: web3.PublicKey.findProgramAddressSync(
+              [Buffer.from("daily-stats"), Buffer.from(liquidationDateString)],
+              this.programId
+            )[0],
+            userLoan: web3.PublicKey.findProgramAddressSync(
+              [Buffer.from("user-loan"), user.toBuffer()],
+              this.programId
+            )[0],
+            feeReceiver,
+            token,
+            userAta,
+            tokenVaultOwner: this.vaultOwner,
+            tokenVault,
+            associatedTokenProgram,
+            tokenProgram,
+            systemProgram,
+          },
+          dailyStateOldEndDate: web3.PublicKey.findProgramAddressSync(
+            [Buffer.from("daily-stats"), Buffer.from(getDateStringFromTimestamp(Number(endDate)))],
             this.programId
           )[0],
-          lastLiquidationDateState: web3.PublicKey.findProgramAddressSync(
-            [Buffer.from("daily-stats"), Buffer.from(liquidationDateString)],
-            this.programId
-          )[0],
-          dailyStateByDate: web3.PublicKey.findProgramAddressSync(
-            [Buffer.from("daily-stats"), Buffer.from(currentDateString)],
-            this.programId
-          )[0],
-          userLoan: web3.PublicKey.findProgramAddressSync(
-            [Buffer.from("user-loan"), user.toBuffer()],
-            this.programId
-          )[0],
-          feeReceiver,
-          token,
-          userAta,
-          tokenVaultOwner: this.vaultOwner,
-          tokenVault,
-          associatedTokenProgram,
-          tokenProgram,
-          systemProgram,
         })
         .instruction();
       
@@ -1078,6 +1125,10 @@ export class MushiProgramRpc {
       const mainStateInfo = await this.getMainStateInfo();
       if (!mainStateInfo) throw "Failed to get main state info";
       const { feeReceiver } = mainStateInfo;
+
+      const userLoanInfo = await this.getUserLoanInfo(this.provider.publicKey);
+      if (!userLoanInfo) throw "Failed to get user loan info";
+      const { endDate } = userLoanInfo;
 
       // Get the global state directly to access last_liquidation_date
       const globalState = await this.program.account.globalStats.fetch(this.globalState);
@@ -1112,33 +1163,35 @@ export class MushiProgramRpc {
       const ix = await this.program.methods
         .flashClosePosition()
         .accounts({
-          user,
-          mainState: this.mainState,
-          globalState: this.globalState,
-          dailyState: web3.PublicKey.findProgramAddressSync(
+          common: {
+            user,
+            mainState: this.mainState,
+            globalState: this.globalState,
+            dailyState: web3.PublicKey.findProgramAddressSync(
             [Buffer.from("daily-stats"), Buffer.from(currentDateString)],
             this.programId
-          )[0],
-          lastLiquidationDateState: web3.PublicKey.findProgramAddressSync(
-            [Buffer.from("daily-stats"), Buffer.from(liquidationDateString)],
+            )[0],
+            lastLiquidationDateState: web3.PublicKey.findProgramAddressSync(
+              [Buffer.from("daily-stats"), Buffer.from(liquidationDateString)],
+              this.programId
+            )[0],
+            userLoan: web3.PublicKey.findProgramAddressSync(
+              [Buffer.from("user-loan"), user.toBuffer()],
+              this.programId
+            )[0],
+            feeReceiver,
+            token,
+            userAta,
+            tokenVaultOwner: this.vaultOwner,
+            tokenVault,
+            associatedTokenProgram,
+            tokenProgram,
+            systemProgram,
+          },
+          dailyStateOldEndDate: web3.PublicKey.findProgramAddressSync(
+            [Buffer.from("daily-stats"), Buffer.from(getDateStringFromTimestamp(Number(endDate)))],
             this.programId
           )[0],
-          dailyStateByDate: web3.PublicKey.findProgramAddressSync(
-            [Buffer.from("daily-stats"), Buffer.from(currentDateString)],
-            this.programId
-          )[0],
-          userLoan: web3.PublicKey.findProgramAddressSync(
-            [Buffer.from("user-loan"), user.toBuffer()],
-            this.programId
-          )[0],
-          feeReceiver,
-          token,
-          userAta,
-          tokenVaultOwner: this.vaultOwner,
-          tokenVault,
-          associatedTokenProgram,
-          tokenProgram,
-          systemProgram,
         })
         .instruction();
       
@@ -1168,6 +1221,10 @@ export class MushiProgramRpc {
       const mainStateInfo = await this.getMainStateInfo();
       if (!mainStateInfo) throw "Failed to get main state info";
       const { feeReceiver } = mainStateInfo;
+
+      const userLoanInfo = await this.getUserLoanInfo(this.provider.publicKey);
+      if (!userLoanInfo) throw "Failed to get user loan info";
+      const { endDate } = userLoanInfo;
 
       // Get the global state directly to access last_liquidation_date
       const globalState = await this.program.account.globalStats.fetch(this.globalState);
@@ -1202,34 +1259,43 @@ export class MushiProgramRpc {
       
       const ix = await this.program.methods
         .extendLoan(new BN(rawSolAmount), new BN(numberOfDays))
-        .accounts({
+        .accounts({ 
+          common: {
+            user,
+            mainState: this.mainState,
+            globalState: this.globalState,
+            dailyState: web3.PublicKey.findProgramAddressSync(
+            [Buffer.from("daily-stats"), Buffer.from(currentDateString)],
+            this.programId
+            )[0],
+            lastLiquidationDateState: web3.PublicKey.findProgramAddressSync(
+              [Buffer.from("daily-stats"), Buffer.from(liquidationDateString)],
+              this.programId
+            )[0],
+            
+            userLoan: web3.PublicKey.findProgramAddressSync(
+              [Buffer.from("user-loan"), user.toBuffer()],
+              this.programId
+            )[0],
+            feeReceiver,
+            token,
+            userAta,
+            tokenVaultOwner: this.vaultOwner,
+            tokenVault,
+            associatedTokenProgram,
+            tokenProgram,
+            systemProgram,
+          },
           user,
-          mainState: this.mainState,
-          globalState: this.globalState,
-          dailyState: web3.PublicKey.findProgramAddressSync(
-            [Buffer.from("daily-stats"), Buffer.from(currentDateString)],
-            this.programId
-          )[0],
-          lastLiquidationDateState: web3.PublicKey.findProgramAddressSync(
-            [Buffer.from("daily-stats"), Buffer.from(liquidationDateString)],
-            this.programId
-          )[0],
-          dailyStateByDate: web3.PublicKey.findProgramAddressSync(
-            [Buffer.from("daily-stats"), Buffer.from(currentDateString)],
-            this.programId
-          )[0],
-          userLoan: web3.PublicKey.findProgramAddressSync(
-            [Buffer.from("user-loan"), user.toBuffer()],
-            this.programId
-          )[0],
-          feeReceiver,
-          token,
-          userAta,
-          tokenVaultOwner: this.vaultOwner,
-          tokenVault,
-          associatedTokenProgram,
-          tokenProgram,
           systemProgram,
+          dailyStateOldEndDate: web3.PublicKey.findProgramAddressSync(
+            [Buffer.from("daily-stats"), Buffer.from(getDateStringFromTimestamp(Number(endDate)))],
+            this.programId
+          )[0],
+          dailyStateEndDate: web3.PublicKey.findProgramAddressSync(
+            [Buffer.from("daily-stats"), Buffer.from(currentDateString)],
+            this.programId
+          )[0],
         })
         .instruction();
       

@@ -42,6 +42,14 @@ pub enum MushiProgramError {
     #[msg("too small team fee")]
     TooSmallTeamFee,
 
+    #[msg("loan expired")]
+    LoanExpired,
+
+    #[msg("invalid collateral amount")]
+    InvalidCollateralAmount,
+
+    #[msg("remove collateral failed")]
+    RemoveCollateralFailed,
     #[msg("referral not found")]
     ReferralNotFound,
 

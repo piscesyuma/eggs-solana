@@ -46,4 +46,32 @@ pub mod mushi_program {
     pub fn sell(ctx: Context<ACommon>, token_amount: u64) -> Result<()> {
         ixs::sell(ctx, token_amount)
     }
+
+    pub fn borrow(ctx: Context<ACommon>, sol_amount: u64, number_of_days: u64) -> Result<()> {
+        ixs::borrow(ctx, sol_amount, number_of_days)
+    }
+
+    pub fn repay(ctx: Context<ACommon>, sol_amount: u64) -> Result<()> {
+        ixs::repay(ctx, sol_amount)
+    }
+
+    pub fn leverage(ctx: Context<ACommon>, sol_amount: u64, number_of_days: u64) -> Result<()> {
+        ixs::leverage(ctx, sol_amount, number_of_days)
+    }
+
+    pub fn remove_collateral(ctx: Context<ACommon>, amount: u64) -> Result<()> {
+        ixs::remove_collateral(ctx, amount)
+    }
+
+    pub fn extend_loan(ctx: Context<ACommon>, sol_amount: u64, number_of_days: u64) -> Result<()> {
+        ixs::extend_loan(ctx, sol_amount, number_of_days)
+    }
+    
+    pub fn close_position(ctx: Context<ACommon>, sol_amount: u64) -> Result<()> {
+        ixs::close_position(ctx, sol_amount)
+    }
+
+    pub fn flash_close_position(ctx: Context<ACommon>) -> Result<()> {
+        ixs::flash_close_position(ctx)
+    }
 }

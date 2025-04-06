@@ -4,7 +4,7 @@ use anchor_spl::{associated_token::AssociatedToken, token_interface};
 use crate::{
     constants::{FEES_BUY, FEES_BUY_REFERRAL, FEES_SELL, FEE_BASE_1000, MIN, VAULT_SEED}, 
     error::MushiProgramError, 
-    utils::{burn_tokens, liquidate, mint_to_tokens_by_main_state, trasnfer_sol, trasnfer_sol_to_pubkey}, 
+    utils::{burn_tokens, liquidate, mint_to_tokens_by_main_state, transfer_sol, trasnfer_sol_to_pubkey}, 
 };
 use crate::context::common::ACommon;
 
@@ -44,13 +44,13 @@ pub fn buy(ctx:Context<ACommon>, sol_amount:u64) -> Result<()> {
         return Err(MushiProgramError::TooSmallTeamFee.into());
     }
     let left_sol_amount = sol_amount.checked_sub(fee).unwrap();
-    trasnfer_sol(
+    transfer_sol(
         ctx.accounts.user.to_account_info(), 
     ctx.accounts.fee_receiver.to_account_info(), 
     ctx.accounts.system_program.to_account_info(), 
     fee, 
     None)?;
-    trasnfer_sol(
+    transfer_sol(
         ctx.accounts.user.to_account_info(), 
         ctx.accounts.token_vault_owner.to_account_info(), 
         ctx.accounts.system_program.to_account_info(), 
@@ -121,14 +121,14 @@ pub fn buy_with_referral(ctx:Context<ACommon>,  input: BuyWithReferralInput ) ->
     }
 
     let left_sol_amount = sol_amount.checked_sub(fee_treasury+fee_referral).unwrap();
-    trasnfer_sol(
+    transfer_sol(
         ctx.accounts.user.to_account_info(), 
     ctx.accounts.fee_receiver.to_account_info(), 
     ctx.accounts.system_program.to_account_info(), 
     fee_treasury, 
     None)?;
     
-    trasnfer_sol(
+    transfer_sol(
         ctx.accounts.user.to_account_info(), 
         ctx.accounts.referral.as_ref().unwrap().to_account_info(), 
         ctx.accounts.system_program.to_account_info(), 
@@ -136,7 +136,7 @@ pub fn buy_with_referral(ctx:Context<ACommon>,  input: BuyWithReferralInput ) ->
         None
     )?;
     
-    trasnfer_sol(
+    transfer_sol(
         ctx.accounts.user.to_account_info(), 
         ctx.accounts.token_vault_owner.to_account_info(), 
         ctx.accounts.system_program.to_account_info(), 
@@ -179,7 +179,7 @@ pub fn sell(ctx:Context<ACommon>, token_amount:u64)->Result<()>{
     require!(sol_fee_amount > MIN, MushiProgramError::TooSmallInputAmount);
 
     // Payment to seller
-    trasnfer_sol(
+    transfer_sol(
         vault_owner.to_account_info(), 
         seller.to_account_info(), 
         system_program.to_account_info(), 
@@ -191,7 +191,7 @@ pub fn sell(ctx:Context<ACommon>, token_amount:u64)->Result<()>{
     //     return Err(MushiProgramError::TooSmallInputAmount.into());
     // }
 
-    trasnfer_sol(
+    transfer_sol(
         vault_owner.to_account_info(), 
         ctx.accounts.fee_receiver.to_account_info(), 
         system_program.to_account_info(), 

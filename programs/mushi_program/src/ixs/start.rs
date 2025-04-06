@@ -15,7 +15,7 @@ use crate::{
     constants::{LAMPORTS_PER_SOL, MIN, SECONDS_IN_A_DAY, VAULT_SEED},
     error::MushiProgramError,
     program::MushiProgram,
-    utils::{burn_tokens, mint_to_tokens_by_main_state, trasnfer_sol},
+    utils::{burn_tokens, mint_to_tokens_by_main_state, transfer_sol},
     MainState, GlobalStats,
 };
 
@@ -69,7 +69,7 @@ pub fn start(ctx: Context<AStart>, input: StartInput) -> Result<()> {
     msg!(&mint.key().to_string());
     // transfer sol to vault owner
     let system_program = ctx.accounts.system_program.to_account_info();
-    trasnfer_sol(
+    transfer_sol(
         ctx.accounts.admin.to_account_info(),
         ctx.accounts.token_vault_owner.to_account_info(), 
         system_program.to_account_info(), 

@@ -25,7 +25,7 @@ impl MainState {
 pub struct UserLoan {
     pub collateral: u64,
     pub borrowed: u64,
-    pub end_date: u64,
+    pub end_date: i64,
     pub number_of_days: u64,
 }
 

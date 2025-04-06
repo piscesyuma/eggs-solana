@@ -2,7 +2,7 @@ use anchor_lang::prelude::*;
 use anchor_spl::{associated_token::AssociatedToken, token_interface};
 
 use crate::{
-    constants::{FEE_BASE_1000, SECONDS_IN_A_DAY, VAULT_SEED}, error::MushiProgramError, state::{GlobalStats, MainState, UserLoan}, utils::{get_date_from_timestamp, get_date_string_from_timestamp, get_interest_fee}, DailyStats 
+    constants::{FEE_BASE_1000, LAMPORTS_PER_SOL, SECONDS_IN_A_DAY, VAULT_SEED}, error::MushiProgramError, state::{GlobalStats, MainState, UserLoan}, utils::{get_date_from_timestamp, get_date_string_from_timestamp, get_interest_fee}, DailyStats 
 };
 
 #[derive(Accounts)]
@@ -140,15 +140,18 @@ impl<'info> ACommon<'info> {
     }
     pub fn safety_check(&mut self) -> Result<()> {
         let backing = self.get_backing()?;
-        let new_price: u64 = backing.checked_mul(1).unwrap()
-        .checked_div(self.global_state.token_supply).unwrap();
+        let new_price: u64 = (backing as u128).checked_mul(LAMPORTS_PER_SOL as u128).unwrap()
+        .checked_div(self.global_state.token_supply as u128).unwrap() as u64;
         let _total_collateral = self.token_vault_owner.lamports();
-        if _total_collateral < self.global_state.total_collateral {
-            return Err(MushiProgramError::SafetyCheckFailed.into());
-        }
-        if new_price < self.global_state.last_price {
-            return Err(MushiProgramError::SafetyCheckFailed.into());
-        }
+
+        require!(
+            _total_collateral >= self.global_state.total_collateral,
+            MushiProgramError::SafetyCheckCollateralFailed
+        );
+        require!(
+            new_price >= self.global_state.last_price,
+            MushiProgramError::SafetyCheckPriceFailed
+        );
         self.global_state.last_price = new_price;
         Ok(())
     }

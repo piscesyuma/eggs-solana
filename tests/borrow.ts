@@ -24,7 +24,7 @@ describe("mushi_program_borrow", () => {
   const user = provider.publicKey;
 
   // Parameters for the borrow operation
-  const solAmount = 1; // Amount of SOL to borrow
+  const solAmount = 0.1; // Amount of SOL to borrow
   const numberOfDays = 7; // Loan duration in days
 
   it("Get initial state info", async () => {

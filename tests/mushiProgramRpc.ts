@@ -40,9 +40,13 @@ export type MainStateInfo = {
   buyFeeLeverage: number;
 };
 export type GlobalStateInfo = {
+  started: boolean;
   tokenSupply: number;
   token: web3.PublicKey;
-  started: boolean;
+  lastLiquidationDate: number;
+  totalBorrowed: number;
+  totalCollateral: number;
+  lastPrice: number;
 };
 export type UserLoanInfo = {
   endDate: string;
@@ -234,12 +238,16 @@ export class MushiProgramRpc {
 
   async getGlobalInfo(): Promise<GlobalStateInfo | null> {
     try {
-      const { tokenSupply, token, started } =
+      const { tokenSupply, token, started, lastLiquidationDate, totalBorrowed, totalCollateral, lastPrice } =
         await this.program.account.globalStats.fetch(this.globalState);
       return {
         tokenSupply: Number(tokenSupply.toString()),
         token,
         started,
+        lastLiquidationDate: Number(lastLiquidationDate.toString()),
+        totalBorrowed: Number(totalBorrowed.toString()),
+        totalCollateral: Number(totalCollateral.toString()),
+        lastPrice: Number(lastPrice.toString()),
       };
     } catch (getGlobalStateInfoError) {
       log({ getGlobalStateInfoError });
@@ -675,7 +683,9 @@ export class MushiProgramRpc {
           currentDate: currentDateString,
           liquidationDate: liquidationDateString,
           currentTimestamp: midnightTimestamp, 
-          liquidationTimestamp: Number(lastLiquidationDate)
+          liquidationTimestamp: Number(lastLiquidationDate),
+          endDate: endDateString,
+          endDateTimestamp: endDate,
         });
       }
       

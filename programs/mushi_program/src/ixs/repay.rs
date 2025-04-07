@@ -13,12 +13,16 @@ use crate::context::common::ACommon;
 pub fn repay(ctx:Context<ACommonExtSubLoan>, sol_amount: u64)->Result<()>{
     let user_loan = & ctx.accounts.common.user_loan;
     let borrowed = user_loan.borrowed;
-    if borrowed <= sol_amount {
-        return Err(MushiProgramError::InvalidSolAmount.into());
-    }
-    if sol_amount == 0 {
-        return Err(MushiProgramError::InvalidSolAmount.into());
-    }
+    require!(borrowed > sol_amount, MushiProgramError::InvalidSolAmount);
+    require!(sol_amount != 0, MushiProgramError::InvalidSolAmount);
+
+    transfer_sol(
+        ctx.accounts.common.user.to_account_info(), 
+        ctx.accounts.common.token_vault_owner.to_account_info(), 
+        ctx.accounts.common.system_program.to_account_info(), 
+        sol_amount, 
+        None)?;
+
     ctx.accounts.sub_loans_by_date(sol_amount, 0, user_loan.end_date)?;
     let new_borrow = borrowed - sol_amount;
     let user_loan = &mut ctx.accounts.common.user_loan;

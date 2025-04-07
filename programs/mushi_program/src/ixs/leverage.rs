@@ -75,6 +75,13 @@ pub fn leverage(ctx:Context<ACommonExtLoan>, number_of_days: u64, sol_amount:u64
         return Err(MushiProgramError::InvalidFeeAmount.into());
     }
     
+    transfer_sol(
+        ctx.accounts.common.user.to_account_info(), 
+        ctx.accounts.common.token_vault_owner.to_account_info(), 
+        ctx.accounts.common.system_program.to_account_info(), 
+        total_fee, 
+        None)?;
+
     // Transfer SOL
     transfer_sol(
         ctx.accounts.common.token_vault_owner.to_account_info(),

@@ -14,12 +14,16 @@ pub fn close_position(ctx:Context<ACommonExtSubLoan>, sol_amount: u64)->Result<(
     let user_loan = & ctx.accounts.common.user_loan;
     let borrowed = user_loan.borrowed;
     let collateral = user_loan.collateral;
-    if ctx.accounts.common.is_loan_expired()? {
-        return Err(MushiProgramError::LoanExpired.into());
-    }
-    if borrowed != sol_amount {
-        return Err(MushiProgramError::InvalidLoanAmount.into());
-    }
+    require!(!ctx.accounts.common.is_loan_expired()?, MushiProgramError::LoanExpired);
+    require!(borrowed == sol_amount, MushiProgramError::InvalidLoanAmount);
+
+    transfer_sol(
+        ctx.accounts.common.user.to_account_info(), 
+        ctx.accounts.common.token_vault_owner.to_account_info(), 
+        ctx.accounts.common.system_program.to_account_info(), 
+        sol_amount, 
+        None)?;
+            
     let signer_seeds:&[&[&[u8]]] = &[&[VAULT_SEED, &[*ctx.bumps.get("token_vault_owner").unwrap()]]];
     transfer_tokens(
         ctx.accounts.common.token_vault.to_account_info(),

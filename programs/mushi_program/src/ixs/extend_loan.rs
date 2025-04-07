@@ -19,16 +19,20 @@ pub fn extend_loan(ctx:Context<ACommonExtLoan2>, number_of_days: u64, sol_amount
 
     let new_end_date = old_end_date + number_of_days as i64 * SECONDS_IN_A_DAY;
     let loan_fee = get_interest_fee(borrowed, number_of_days);
-    if !ctx.accounts.common.is_loan_expired()? {
-        return Err(MushiProgramError::LoanExpired.into());
-    }
-    if loan_fee != sol_amount {
-        return Err(MushiProgramError::InvalidSolAmount.into());
-    }
+    
+    require!(!ctx.accounts.common.is_loan_expired()?, MushiProgramError::LoanExpired);
+    require!(loan_fee == sol_amount, MushiProgramError::InvalidSolAmount);
+
     let fee_address_fee = sol_amount.checked_mul(3).unwrap().checked_div(10).unwrap();
-    if fee_address_fee <= MIN {
-        return Err(MushiProgramError::InvalidFeeAmount.into());
-    }
+    require!(fee_address_fee > MIN, MushiProgramError::InvalidFeeAmount);
+
+    transfer_sol(
+        ctx.accounts.common.user.to_account_info(), 
+        ctx.accounts.common.token_vault_owner.to_account_info(), 
+        ctx.accounts.common.system_program.to_account_info(), 
+        sol_amount, 
+        None)?;
+
     let signer_seeds:&[&[&[u8]]] = &[&[VAULT_SEED, &[*ctx.bumps.get("token_vault_owner").unwrap()]]];
     transfer_sol(
         ctx.accounts.common.token_vault_owner.to_account_info(), 

@@ -19,9 +19,7 @@ pub fn buy(ctx:Context<ACommon>, sol_amount:u64) -> Result<()> {
         *ctx.bumps.get("token_vault_owner").unwrap(),
     )?;
     let is_started = global_state.started;
-    if !is_started {
-        return Err(MushiProgramError::NotStarted.into());
-    }
+    require!(is_started, MushiProgramError::NotStarted);
     // minting tokens
     mint_to_tokens_by_main_state(
         ctx.accounts.token.to_account_info(), 
@@ -38,9 +36,7 @@ pub fn buy(ctx:Context<ACommon>, sol_amount:u64) -> Result<()> {
     let fee: u64 = sol_amount.checked_mul(FEES_BUY+FEES_BUY_REFERRAL).unwrap().checked_div(10_000).unwrap();
     // let fee: u64 = sol_amount.checked_div(FEES_BUY).unwrap();
     
-    if fee <= MIN {
-        return Err(MushiProgramError::TooSmallTeamFee.into());
-    }
+    require!(fee > MIN, MushiProgramError::TooSmallTeamFee);
     let left_sol_amount = sol_amount.checked_sub(fee).unwrap();
     transfer_sol(
         ctx.accounts.user.to_account_info(), 
@@ -81,18 +77,11 @@ pub fn buy_with_referral(ctx:Context<ACommonExtReferral>,  input: BuyWithReferra
         *ctx.bumps.get("token_vault_owner").unwrap(),
     )?;
     let is_started = global_state.started;
-    if !is_started {
-        return Err(MushiProgramError::NotStarted.into());
-    }
+    require!(is_started, MushiProgramError::NotStarted);
 
-    if ctx.accounts.referral.is_none() {
-        return Err(MushiProgramError::ReferralNotFound.into());
-    }
-    
+    require!(ctx.accounts.referral.is_some(), MushiProgramError::ReferralNotFound);
     let referral_account = ctx.accounts.referral.as_ref().unwrap();
-    if referral_account.key() != input.referral_pubkey {
-        return Err(MushiProgramError::InvalidReferralAccount.into());
-    }
+    require!(referral_account.key() == input.referral_pubkey, MushiProgramError::InvalidReferralAccount);
 
     // minting tokens
     mint_to_tokens_by_main_state(
@@ -111,9 +100,7 @@ pub fn buy_with_referral(ctx:Context<ACommonExtReferral>,  input: BuyWithReferra
     let fee_referral: u64 = sol_amount.checked_mul(FEES_BUY_REFERRAL).unwrap().checked_div(10_000).unwrap();
     // let fee: u64 = sol_amount.checked_div(FEES_BUY).unwrap();
     
-    if fee_treasury <= MIN {
-        return Err(MushiProgramError::TooSmallTeamFee.into());
-    }
+    require!(fee_treasury > MIN, MushiProgramError::TooSmallTeamFee);
     if fee_referral <= MIN {
         return Err(MushiProgramError::TooSmallTeamFee.into());
     }
@@ -184,10 +171,6 @@ pub fn sell(ctx:Context<ACommon>, token_amount:u64)->Result<()>{
         sol_amount * ctx.accounts.main_state.sell_fee / FEE_BASE_1000, 
         Some(signer_seeds))?;
     // team fee
-    
-    // if sol_amount / FEES_SELL <= MIN {
-    //     return Err(MushiProgramError::TooSmallInputAmount.into());
-    // }
 
     transfer_sol(
         vault_owner.to_account_info(), 

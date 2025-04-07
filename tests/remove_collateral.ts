@@ -24,7 +24,7 @@ describe("mushi_program_remove_collateral", () => {
   const user = provider.publicKey;
 
   // Parameters for the remove_collateral operation
-  const amount = 500; // Amount of tokens to remove as collateral
+  const amount = 1; // Amount of tokens to remove as collateral
 
   it("Get initial state info", async () => {
     mainStateInfo = await connectivity.getMainStateInfo();

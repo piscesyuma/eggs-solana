@@ -11,9 +11,8 @@ use crate::{
 use crate::context::common::ACommon;
 
 pub fn remove_collateral(ctx:Context<ACommonExtSubLoan>, amount: u64)->Result<()>{
-    if ctx.accounts.common.is_loan_expired()? {
-        return Err(MushiProgramError::LoanExpired.into());
-    }
+    require!(!ctx.accounts.common.is_loan_expired()?, MushiProgramError::LoanExpired);
+
     let global_state = &mut ctx.accounts.common.global_state;  
     liquidate(
         &mut ctx.accounts.common.last_liquidation_date_state,
@@ -26,9 +25,12 @@ pub fn remove_collateral(ctx:Context<ACommonExtSubLoan>, amount: u64)->Result<()
     )?;
     let user_loan = & ctx.accounts.common.user_loan;
     let collateral = user_loan.collateral;
-    if user_loan.borrowed > ctx.accounts.common.mushi_to_sol((collateral - amount)* 99)?/ 100 {
-        return Err(MushiProgramError::RemoveCollateralFailed.into());
-    }
+
+    require!(
+        user_loan.borrowed <= 
+        ctx.accounts.common.mushi_to_sol((collateral - amount)* 99)?/ 100, 
+        MushiProgramError::RemoveCollateralFailed);
+        
     ctx.accounts.sub_loans_by_date(0, amount, user_loan.end_date)?;
     let user_loan = &mut ctx.accounts.common.user_loan;
     user_loan.collateral -= amount;

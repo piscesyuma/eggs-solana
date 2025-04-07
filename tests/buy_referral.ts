@@ -30,10 +30,10 @@ describe("mushi_program_buy_with_referral", () => {
   it("Get initial state info", async () => {
     mainStateInfo = await connectivity.getMainStateInfo();
     if (!mainStateInfo) throw "Failed to get main state info";
-    log({ mainStateInfo });
+    // log({ mainStateInfo });
 
     globalInfo = await connectivity.getGlobalInfo();
-    log({ globalInfo });
+    // log({ globalInfo });
 
     if (!globalInfo) throw "Failed to get global state info";
 
@@ -44,7 +44,7 @@ describe("mushi_program_buy_with_referral", () => {
     }
     
     // Log the current date string for reference
-    log(`Current date: ${getCurrentDateString()}`);
+    // log(`Current date: ${getCurrentDateString()}`);
   });
 
   it("Buy tokens with SOL", async () => {

@@ -71,9 +71,7 @@ pub fn leverage(ctx:Context<ACommonExtLoan>, number_of_days: u64, sol_amount:u64
         main_state_bump,
     )?;
 
-    if fee_address_amount <= MIN {
-        return Err(MushiProgramError::InvalidFeeAmount.into());
-    }
+    require!(fee_address_amount > MIN, MushiProgramError::InvalidFeeAmount);
     
     transfer_sol(
         ctx.accounts.common.user.to_account_info(), 

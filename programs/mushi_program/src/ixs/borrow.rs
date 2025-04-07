@@ -83,15 +83,13 @@ pub fn borrow(ctx:Context<ACommonExtLoan>, number_of_days: u64, sol_amount:u64)-
 
 pub fn borrow_more(ctx:Context<ACommonExtLoan>, sol_amount:u64)->Result<()>{
     let is_expired = ctx.accounts.common.is_loan_expired()?;
-    if is_expired {
-        return Err(MushiProgramError::LoanExpired.into());
-    }
+    require!(!is_expired, MushiProgramError::LoanExpired);
+    require!(sol_amount != 0, MushiProgramError::InvalidSolAmount);
+
+    let user_mushi = ctx.accounts.common.sol_to_mushi_no_trade_ceil(sol_amount)?;
     let user_mushi = ctx.accounts.common.sol_to_mushi_no_trade_ceil(sol_amount)?;
     let user_loan = & ctx.accounts.common.user_loan;
  
-    if sol_amount == 0 {
-        return Err(MushiProgramError::InvalidSolAmount.into());
-    }
     let global_state = &mut ctx.accounts.common.global_state;
     liquidate(
         &mut ctx.accounts.common.last_liquidation_date_state,
@@ -142,9 +140,8 @@ pub fn borrow_more(ctx:Context<ACommonExtLoan>, sol_amount:u64)->Result<()>{
         )?;
     }
     
-    if fee_address_fee <= MIN {
-        return Err(MushiProgramError::InvalidFeeAmount.into());
-    }
+    require!(fee_address_fee > MIN, MushiProgramError::InvalidFeeAmount);
+
     let signer_seeds:&[&[&[u8]]] = &[&[VAULT_SEED, &[*ctx.bumps.get("token_vault_owner").unwrap()]]];
     transfer_sol(
         ctx.accounts.common.token_vault_owner.to_account_info(), 

@@ -34,9 +34,7 @@ pub fn start(ctx: Context<AStart>, input: StartInput) -> Result<()> {
     let admin = ctx.accounts.admin.to_account_info();
     //checks
     let team_mint_amount = input.sol_amount * MIN;
-    if team_mint_amount < LAMPORTS_PER_SOL {
-        return Err(MushiProgramError::InvalidInput.into());
-    }
+    require!(team_mint_amount >= LAMPORTS_PER_SOL, MushiProgramError::InvalidInput);
 
     let token_vault = ctx.accounts.token_vault.to_account_info();
     let token_program = ctx.accounts.token_program.to_account_info();

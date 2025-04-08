@@ -4,13 +4,13 @@ use anchor_spl::{associated_token::AssociatedToken, token_interface};
 use crate::{
     constants::{
         FEES_BUY, FEES_SELL, FEE_BASE_1000, MIN, SECONDS_IN_A_DAY, VAULT_SEED
-    }, context::{ACommonExtLoan, ACommonExtLoan2}, error::MushiProgramError, utils::{
+    }, context::{ACommonExtLoan, ACommonExtExtendLoan}, error::MushiProgramError, utils::{
         add_loans_by_date, burn_tokens, get_interest_fee, get_midnight_timestamp, liquidate, mint_to_tokens_by_main_state, sub_loans_by_date, transfer_sol, transfer_tokens
     }
 };
 use crate::context::common::ACommon;
 
-pub fn extend_loan(ctx:Context<ACommonExtLoan2>, number_of_days: u64, sol_amount: u64)->Result<()>{
+pub fn extend_loan(ctx:Context<ACommonExtExtendLoan>, number_of_days: u64 )->Result<()>{
     let user_loan = & ctx.accounts.common.user_loan;
     let old_end_date = user_loan.end_date;
     let _number_of_days = user_loan.number_of_days;
@@ -21,16 +21,15 @@ pub fn extend_loan(ctx:Context<ACommonExtLoan2>, number_of_days: u64, sol_amount
     let loan_fee = get_interest_fee(borrowed, number_of_days);
     
     require!(!ctx.accounts.common.is_loan_expired()?, MushiProgramError::LoanExpired);
-    require!(loan_fee == sol_amount, MushiProgramError::InvalidSolAmount);
 
-    let fee_address_fee = sol_amount.checked_mul(3).unwrap().checked_div(10).unwrap();
+    let fee_address_fee = loan_fee.checked_mul(3).unwrap().checked_div(10).unwrap();
     require!(fee_address_fee > MIN, MushiProgramError::InvalidFeeAmount);
 
     transfer_sol(
         ctx.accounts.common.user.to_account_info(), 
         ctx.accounts.common.token_vault_owner.to_account_info(), 
         ctx.accounts.common.system_program.to_account_info(), 
-        sol_amount, 
+        loan_fee, 
         None)?;
 
     let signer_seeds:&[&[&[u8]]] = &[&[VAULT_SEED, &[*ctx.bumps.get("token_vault_owner").unwrap()]]];
@@ -41,7 +40,7 @@ pub fn extend_loan(ctx:Context<ACommonExtLoan2>, number_of_days: u64, sol_amount
         fee_address_fee, 
         Some(signer_seeds))?;
     sub_loans_by_date(&mut ctx.accounts.common.global_state, &mut ctx.accounts.daily_state_old_end_date, borrowed, collateral)?;
-    add_loans_by_date(&mut ctx.accounts.common.global_state, &mut ctx.accounts.daily_state_end_date, borrowed, collateral)?;
+    add_loans_by_date(&mut ctx.accounts.common.global_state, &mut ctx.accounts.daily_state_new_end_date, borrowed, collateral)?;
     let user_loan = &mut ctx.accounts.common.user_loan;
     user_loan.end_date = new_end_date;
     user_loan.number_of_days = number_of_days + _number_of_days;

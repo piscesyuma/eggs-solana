@@ -62,7 +62,7 @@ describe("mushi_program_extend_loan", () => {
     if (!initialLoanInfo) throw "Failed to get initial loan info";
     
     // Perform the extend loan operation with debug=true to show date strings
-    const extendLoanRes = await connectivity.extend_loan(solAmount, numberOfDays, true);
+    const extendLoanRes = await connectivity.extend_loan(numberOfDays, true);
     if (!extendLoanRes.isPass) throw "Failed to extend loan";
     
     log({ extendLoanRes: extendLoanRes.info });

@@ -1217,7 +1217,6 @@ export class MushiProgramRpc {
   }
 
   async extend_loan(
-    solAmount: number,
     numberOfDays: number,
     debug: boolean = false
   ): Promise<SendTxResult> {
@@ -1237,7 +1236,6 @@ export class MushiProgramRpc {
       const globalState = await this.program.account.globalStats.fetch(this.globalState);
       const lastLiquidationDate = globalState.lastLiquidationDate;
 
-      const rawSolAmount = Math.trunc(solAmount * SOL_DECIMALS_HELPER);
       const user = this.provider.publicKey;
       const userAta = getAssociatedTokenAddressSync(token, user);
       const tokenVault = getAssociatedTokenAddressSync(
@@ -1254,7 +1252,7 @@ export class MushiProgramRpc {
       const currentDateString = getDateStringFromTimestamp(midnightTimestamp);
       const liquidationDateString = getDateStringFromTimestamp(Number(lastLiquidationDate));
       
-      const newEndDate = now + ((numberOfDays+1) * SECONDS_IN_A_DAY);
+      const newEndDate = Number(endDate) + ((numberOfDays) * SECONDS_IN_A_DAY);
       const newEndDateString = getDateStringFromTimestamp(newEndDate);
       // For debugging - print the date strings
       if (debug) {
@@ -1267,7 +1265,7 @@ export class MushiProgramRpc {
       }
       
       const ix = await this.program.methods
-        .extendLoan(new BN(rawSolAmount), new BN(numberOfDays))
+        .extendLoan(new BN(numberOfDays))
         .accounts({ 
           common: {
             user,
@@ -1301,7 +1299,7 @@ export class MushiProgramRpc {
             [Buffer.from("daily-stats"), Buffer.from(getDateStringFromTimestamp(Number(endDate)))],
             this.programId
           )[0],
-          dailyStateEndDate: web3.PublicKey.findProgramAddressSync(
+          dailyStateNewEndDate: web3.PublicKey.findProgramAddressSync(
             [Buffer.from("daily-stats"), Buffer.from(newEndDateString)],
             this.programId
           )[0],

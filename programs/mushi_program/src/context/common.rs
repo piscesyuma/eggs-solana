@@ -245,3 +245,36 @@ pub struct ACommonExtSubLoan<'info> {
     )]
     pub daily_state_old_end_date: Box<Account<'info, DailyStats>>, 
 }
+
+
+#[derive(Accounts)]
+#[instruction(number_of_days: i64)]
+pub struct ACommonExtExtendLoan<'info> {
+    pub common: ACommon<'info>, // Embed the existing ACommon struct
+    
+    #[account(mut)]
+    pub user: Signer<'info>,
+    
+    #[account(
+        mut,
+        seeds = [
+            b"daily-stats".as_ref(),
+            get_date_string_from_timestamp(common.user_loan.end_date).as_bytes()
+        ],
+        bump
+    )]
+    pub daily_state_old_end_date: Box<Account<'info, DailyStats>>, 
+
+    #[account(
+        init_if_needed,
+        payer = user,
+        space = 8 + DailyStats::MAX_SIZE,
+        seeds = [
+            b"daily-stats".as_ref(),
+            get_date_string_from_timestamp(common.user_loan.end_date + (number_of_days) * SECONDS_IN_A_DAY).as_bytes()
+        ],
+        bump
+    )]
+    pub daily_state_new_end_date: Box<Account<'info, DailyStats>>, 
+    pub system_program: Program<'info, System>,
+}

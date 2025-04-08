@@ -212,7 +212,36 @@ impl<'info> ACommonExtLoan<'info> {
         global_state.total_collateral += collateral;
         Ok(())
     }
+}
+
+#[derive(Accounts)]
+#[instruction(number_of_days: i64)]
+pub struct ACommonExtBorrowMore<'info> {
+    pub common: ACommon<'info>, // Embed the existing ACommon struct
     
+    #[account(mut)]
+    pub user: Signer<'info>,
+    
+    #[account(
+        seeds = [
+            b"daily-stats".as_ref(),
+            get_date_string_from_timestamp(common.user_loan.end_date).as_bytes()
+        ],
+        bump
+    )]
+    pub daily_state_end_date: Box<Account<'info, DailyStats>>, 
+}
+
+impl<'info> ACommonExtBorrowMore<'info> {
+    pub fn add_loans_by_date(&mut self, borrowed: u64, collateral: u64) -> Result<()> {
+        let daily_state = &mut self.daily_state_end_date;
+        let global_state = &mut self.common.global_state;
+        daily_state.borrowed += borrowed;
+        daily_state.collateral += collateral;
+        global_state.total_borrowed += borrowed;
+        global_state.total_collateral += collateral;
+        Ok(())
+    }
 }
 
 #[derive(Accounts)]

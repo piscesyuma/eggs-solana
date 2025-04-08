@@ -4,7 +4,7 @@ use anchor_spl::{associated_token::AssociatedToken, token_interface};
 use crate::{
     constants::{
         FEES_BUY, FEES_SELL, FEE_BASE_1000, MIN, SECONDS_IN_A_DAY, VAULT_SEED
-    }, context::ACommonExtLoan, error::MushiProgramError, utils::{
+    }, context::{ACommonExtBorrowMore, ACommonExtLoan}, error::MushiProgramError, utils::{
         burn_tokens, get_interest_fee, get_midnight_timestamp, liquidate, mint_to_tokens_by_main_state, transfer_sol, transfer_tokens
     }
 };
@@ -81,12 +81,11 @@ pub fn borrow(ctx:Context<ACommonExtLoan>, number_of_days: u64, sol_amount:u64)-
     Ok(())
 }
 
-pub fn borrow_more(ctx:Context<ACommonExtLoan>, sol_amount:u64)->Result<()>{
+pub fn borrow_more(ctx:Context<ACommonExtBorrowMore>, sol_amount:u64)->Result<()>{
     let is_expired = ctx.accounts.common.is_loan_expired()?;
     require!(!is_expired, MushiProgramError::LoanExpired);
     require!(sol_amount != 0, MushiProgramError::InvalidSolAmount);
 
-    let user_mushi = ctx.accounts.common.sol_to_mushi_no_trade_ceil(sol_amount)?;
     let user_mushi = ctx.accounts.common.sol_to_mushi_no_trade_ceil(sol_amount)?;
     let user_loan = & ctx.accounts.common.user_loan;
  
@@ -103,7 +102,7 @@ pub fn borrow_more(ctx:Context<ACommonExtLoan>, sol_amount:u64)->Result<()>{
     let user_borrowed = user_loan.borrowed;
     let user_collateral = user_loan.collateral;
     let user_end_date = user_loan.end_date;
-    
+
     let today_midnight = get_midnight_timestamp(Clock::get()?.unix_timestamp);
     let new_borrow_length = (user_end_date - today_midnight) / SECONDS_IN_A_DAY;
     let sol_fee = get_interest_fee(sol_amount, new_borrow_length as u64);

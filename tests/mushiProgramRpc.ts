@@ -1217,8 +1217,111 @@ export class MushiProgramRpc {
   }
 
   async extend_loan(
-    solAmount: number,
     numberOfDays: number,
+    debug: boolean = false
+  ): Promise<SendTxResult> {
+    try {
+      const globalInfo = await this.getGlobalInfo();
+      if (!globalInfo) throw "Failed to get global state info";
+      const { token } = globalInfo;
+      const mainStateInfo = await this.getMainStateInfo();
+      if (!mainStateInfo) throw "Failed to get main state info";
+      const { feeReceiver } = mainStateInfo;
+
+      const userLoanInfo = await this.getUserLoanInfo(this.provider.publicKey);
+      if (!userLoanInfo) throw "Failed to get user loan info";
+      const { endDate } = userLoanInfo;
+
+      // Get the global state directly to access last_liquidation_date
+      const globalState = await this.program.account.globalStats.fetch(this.globalState);
+      const lastLiquidationDate = globalState.lastLiquidationDate;
+
+      const user = this.provider.publicKey;
+      const userAta = getAssociatedTokenAddressSync(token, user);
+      const tokenVault = getAssociatedTokenAddressSync(
+        token,
+        this.vaultOwner,
+        true
+      );
+      
+      // Calculate the midnight timestamp in seconds (Unix timestamp) as the program does
+      const now = Math.floor(Date.now() / 1000); // Current time in seconds
+      const midnightTimestamp = now - (now % SECONDS_IN_A_DAY);
+      
+      // Get the date strings correctly formatted
+      const currentDateString = getDateStringFromTimestamp(midnightTimestamp);
+      const liquidationDateString = getDateStringFromTimestamp(Number(lastLiquidationDate));
+      
+      const newEndDate = Number(endDate) + ((numberOfDays) * SECONDS_IN_A_DAY);
+      const newEndDateString = getDateStringFromTimestamp(newEndDate);
+      // For debugging - print the date strings
+      if (debug) {
+        log({
+          currentDate: currentDateString,
+          liquidationDate: liquidationDateString,
+          currentTimestamp: midnightTimestamp, 
+          liquidationTimestamp: Number(lastLiquidationDate)
+        });
+      }
+      
+      const ix = await this.program.methods
+        .extendLoan(new BN(numberOfDays))
+        .accounts({ 
+          common: {
+            user,
+            mainState: this.mainState,
+            globalState: this.globalState,
+            dailyState: web3.PublicKey.findProgramAddressSync(
+            [Buffer.from("daily-stats"), Buffer.from(currentDateString)],
+            this.programId
+            )[0],
+            lastLiquidationDateState: web3.PublicKey.findProgramAddressSync(
+              [Buffer.from("daily-stats"), Buffer.from(liquidationDateString)],
+              this.programId
+            )[0],
+            
+            userLoan: web3.PublicKey.findProgramAddressSync(
+              [Buffer.from("user-loan"), user.toBuffer()],
+              this.programId
+            )[0],
+            feeReceiver,
+            token,
+            userAta,
+            tokenVaultOwner: this.vaultOwner,
+            tokenVault,
+            associatedTokenProgram,
+            tokenProgram,
+            systemProgram,
+          },
+          user,
+          systemProgram,
+          dailyStateOldEndDate: web3.PublicKey.findProgramAddressSync(
+            [Buffer.from("daily-stats"), Buffer.from(getDateStringFromTimestamp(Number(endDate)))],
+            this.programId
+          )[0],
+          dailyStateNewEndDate: web3.PublicKey.findProgramAddressSync(
+            [Buffer.from("daily-stats"), Buffer.from(newEndDateString)],
+            this.programId
+          )[0],
+        })
+        .instruction();
+      
+      const ixs = [
+        web3.ComputeBudgetProgram.setComputeUnitLimit({ units: 150_000 }),
+        ix,
+      ];
+      
+      const txSignature = await this.sendTx(ixs);
+      if (!txSignature) throw "failed to send tx";
+      return { isPass: true, info: { txSignature } };
+    } catch (extendLoanError) {
+      log({ extendLoanError });
+      return { isPass: false, info: "failed to extend loan" };
+    }
+  }
+
+  async borrow_more(
+    solAmount: number,
     debug: boolean = false
   ): Promise<SendTxResult> {
     try {
@@ -1254,8 +1357,6 @@ export class MushiProgramRpc {
       const currentDateString = getDateStringFromTimestamp(midnightTimestamp);
       const liquidationDateString = getDateStringFromTimestamp(Number(lastLiquidationDate));
       
-      const newEndDate = now + ((numberOfDays+1) * SECONDS_IN_A_DAY);
-      const newEndDateString = getDateStringFromTimestamp(newEndDate);
       // For debugging - print the date strings
       if (debug) {
         log({
@@ -1267,21 +1368,20 @@ export class MushiProgramRpc {
       }
       
       const ix = await this.program.methods
-        .extendLoan(new BN(rawSolAmount), new BN(numberOfDays))
-        .accounts({ 
+        .borrowMore(new BN(rawSolAmount))
+        .accounts({
           common: {
             user,
             mainState: this.mainState,
             globalState: this.globalState,
             dailyState: web3.PublicKey.findProgramAddressSync(
-            [Buffer.from("daily-stats"), Buffer.from(currentDateString)],
-            this.programId
+              [Buffer.from("daily-stats"), Buffer.from(currentDateString)],
+              this.programId
             )[0],
             lastLiquidationDateState: web3.PublicKey.findProgramAddressSync(
               [Buffer.from("daily-stats"), Buffer.from(liquidationDateString)],
               this.programId
             )[0],
-            
             userLoan: web3.PublicKey.findProgramAddressSync(
               [Buffer.from("user-loan"), user.toBuffer()],
               this.programId
@@ -1295,14 +1395,8 @@ export class MushiProgramRpc {
             tokenProgram,
             systemProgram,
           },
-          user,
-          systemProgram,
           dailyStateOldEndDate: web3.PublicKey.findProgramAddressSync(
             [Buffer.from("daily-stats"), Buffer.from(getDateStringFromTimestamp(Number(endDate)))],
-            this.programId
-          )[0],
-          dailyStateEndDate: web3.PublicKey.findProgramAddressSync(
-            [Buffer.from("daily-stats"), Buffer.from(newEndDateString)],
             this.programId
           )[0],
         })
@@ -1316,9 +1410,9 @@ export class MushiProgramRpc {
       const txSignature = await this.sendTx(ixs);
       if (!txSignature) throw "failed to send tx";
       return { isPass: true, info: { txSignature } };
-    } catch (extendLoanError) {
-      log({ extendLoanError });
-      return { isPass: false, info: "failed to extend loan" };
+    } catch (borrowMoreError) {
+      log({ borrowMoreError });
+      return { isPass: false, info: "failed to borrow more" };
     }
   }
 }

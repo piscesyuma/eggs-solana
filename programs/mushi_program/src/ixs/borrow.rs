@@ -4,8 +4,8 @@ use anchor_spl::{associated_token::AssociatedToken, token_interface};
 use crate::{
     constants::{
         FEES_BUY, FEES_SELL, FEE_BASE_1000, MIN, SECONDS_IN_A_DAY, VAULT_SEED
-    }, context::ACommonExtLoan, error::MushiProgramError, utils::{
-        burn_tokens, get_interest_fee, get_midnight_timestamp, liquidate, mint_to_tokens_by_main_state, transfer_sol, transfer_tokens
+    }, context::{ACommonExtLoan, ACommonExtSubLoan}, error::MushiProgramError, utils::{
+        add_loans_by_date, burn_tokens, get_interest_fee, get_midnight_timestamp, liquidate, mint_to_tokens_by_main_state, transfer_sol, transfer_tokens
     }
 };
 use crate::context::common::ACommon;
@@ -76,17 +76,18 @@ pub fn borrow(ctx:Context<ACommonExtLoan>, number_of_days: u64, sol_amount:u64)-
     fee_address_fee, 
     Some(signer_seeds))?;
 
-    ctx.accounts.add_loans_by_date( new_user_borrow, user_mushi)?;
+    // ctx.accounts.add_loans_by_date( new_user_borrow, user_mushi)?;
+    add_loans_by_date(&mut ctx.accounts.common.global_state, &mut ctx.accounts.daily_state_end_date, new_user_borrow, user_mushi)?;
+
     ctx.accounts.common.safety_check()?;
     Ok(())
 }
 
-pub fn borrow_more(ctx:Context<ACommonExtLoan>, sol_amount:u64)->Result<()>{
+pub fn borrow_more(ctx:Context<ACommonExtSubLoan>, sol_amount:u64)->Result<()>{
     let is_expired = ctx.accounts.common.is_loan_expired()?;
     require!(!is_expired, MushiProgramError::LoanExpired);
     require!(sol_amount != 0, MushiProgramError::InvalidSolAmount);
 
-    let user_mushi = ctx.accounts.common.sol_to_mushi_no_trade_ceil(sol_amount)?;
     let user_mushi = ctx.accounts.common.sol_to_mushi_no_trade_ceil(sol_amount)?;
     let user_loan = & ctx.accounts.common.user_loan;
  
@@ -103,7 +104,7 @@ pub fn borrow_more(ctx:Context<ACommonExtLoan>, sol_amount:u64)->Result<()>{
     let user_borrowed = user_loan.borrowed;
     let user_collateral = user_loan.collateral;
     let user_end_date = user_loan.end_date;
-    
+
     let today_midnight = get_midnight_timestamp(Clock::get()?.unix_timestamp);
     let new_borrow_length = (user_end_date - today_midnight) / SECONDS_IN_A_DAY;
     let sol_fee = get_interest_fee(sol_amount, new_borrow_length as u64);
@@ -133,7 +134,7 @@ pub fn borrow_more(ctx:Context<ACommonExtLoan>, sol_amount:u64)->Result<()>{
         transfer_tokens(
             ctx.accounts.common.user_ata.to_account_info(),
             ctx.accounts.common.token_vault.to_account_info(),
-            ctx.accounts.user.to_account_info(),
+            ctx.accounts.common.user.to_account_info(),
             ctx.accounts.common.token_program.to_account_info(),
             require_collateral_from_user,
             None,
@@ -145,7 +146,7 @@ pub fn borrow_more(ctx:Context<ACommonExtLoan>, sol_amount:u64)->Result<()>{
     let signer_seeds:&[&[&[u8]]] = &[&[VAULT_SEED, &[*ctx.bumps.get("token_vault_owner").unwrap()]]];
     transfer_sol(
         ctx.accounts.common.token_vault_owner.to_account_info(), 
-        ctx.accounts.user.to_account_info(), 
+        ctx.accounts.common.user.to_account_info(), 
         ctx.accounts.common.system_program.to_account_info(), 
         new_user_borrow - sol_fee, 
         Some(signer_seeds))?;
@@ -155,7 +156,7 @@ pub fn borrow_more(ctx:Context<ACommonExtLoan>, sol_amount:u64)->Result<()>{
     ctx.accounts.common.system_program.to_account_info(), 
     fee_address_fee, 
     Some(signer_seeds))?;
-    ctx.accounts.add_loans_by_date( new_user_borrow, require_collateral_from_user)?;
+    add_loans_by_date(&mut ctx.accounts.common.global_state, &mut ctx.accounts.daily_state_old_end_date, new_user_borrow, require_collateral_from_user)?;
     ctx.accounts.common.safety_check()?;
     Ok(())
 }

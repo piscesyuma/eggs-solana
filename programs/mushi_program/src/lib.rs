@@ -51,6 +51,10 @@ pub mod mushi_program {
         ixs::borrow(ctx, number_of_days, sol_amount)
     }
 
+    pub fn borrow_more(ctx: Context<ACommonExtSubLoan>, sol_amount: u64) -> Result<()> {
+        ixs::borrow_more(ctx, sol_amount)
+    }
+
     pub fn repay(ctx: Context<ACommonExtSubLoan>, sol_amount: u64) -> Result<()> {
         ixs::repay(ctx, sol_amount)
     }
@@ -63,8 +67,8 @@ pub mod mushi_program {
         ixs::remove_collateral(ctx, amount)
     }
 
-    pub fn extend_loan(ctx: Context<ACommonExtLoan2>, number_of_days: u64, sol_amount: u64) -> Result<()> {
-        ixs::extend_loan(ctx, number_of_days, sol_amount)
+    pub fn extend_loan(ctx: Context<ACommonExtExtendLoan>, number_of_days: u64) -> Result<()> {
+        ixs::extend_loan(ctx, number_of_days)
     }
     
     pub fn close_position(ctx: Context<ACommonExtSubLoan>, sol_amount: u64) -> Result<()> {

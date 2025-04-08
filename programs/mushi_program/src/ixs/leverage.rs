@@ -5,7 +5,7 @@ use crate::{
     constants::{
         FEES_BUY, FEES_SELL, FEE_BASE_1000, MIN, SECONDS_IN_A_DAY, VAULT_SEED
     }, context::ACommonExtLoan, error::MushiProgramError, utils::{
-        burn_tokens, get_interest_fee, get_midnight_timestamp, liquidate, mint_to_tokens_by_main_state, transfer_sol, transfer_tokens
+        add_loans_by_date, burn_tokens, get_interest_fee, get_midnight_timestamp, liquidate, mint_to_tokens_by_main_state, transfer_sol, transfer_tokens
     }
 };
 use crate::context::common::ACommon;
@@ -90,7 +90,7 @@ pub fn leverage(ctx:Context<ACommonExtLoan>, number_of_days: u64, sol_amount:u64
     )?;
     
     // Update loans by date
-    ctx.accounts.add_loans_by_date(user_borrow, user_mushi)?;
+    add_loans_by_date(&mut ctx.accounts.common.global_state, &mut ctx.accounts.daily_state_end_date, user_borrow, user_mushi)?;
  
     // Update user loan data at the end to avoid borrowing conflicts
     let user_loan = &mut ctx.accounts.common.user_loan;

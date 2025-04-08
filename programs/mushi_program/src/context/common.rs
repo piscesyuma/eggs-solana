@@ -177,9 +177,6 @@ pub struct ACommonExtReferral<'info> {
     pub referral: Option<UncheckedAccount<'info>>,
 }
 
-impl<'info> ACommonExtReferral<'info> {
-}
-
 #[derive(Accounts)]
 #[instruction(number_of_days: i64)]
 pub struct ACommonExtLoan<'info> {
@@ -202,19 +199,6 @@ pub struct ACommonExtLoan<'info> {
     pub system_program: Program<'info, System>,
 }
 
-impl<'info> ACommonExtLoan<'info> {
-    pub fn add_loans_by_date(&mut self, borrowed: u64, collateral: u64) -> Result<()> {
-        let daily_state = &mut self.daily_state_end_date;
-        let global_state = &mut self.common.global_state;
-        daily_state.borrowed += borrowed;
-        daily_state.collateral += collateral;
-        global_state.total_borrowed += borrowed;
-        global_state.total_collateral += collateral;
-        Ok(())
-    }
-    
-}
-
 #[derive(Accounts)]
 #[instruction(number_of_days: i64)]
 pub struct ACommonExtLoan2<'info> {
@@ -224,6 +208,7 @@ pub struct ACommonExtLoan2<'info> {
     pub user: Signer<'info>,
     
     #[account(
+        mut,
         seeds = [
             b"daily-stats".as_ref(),
             get_date_string_from_timestamp(common.user_loan.end_date).as_bytes()
@@ -246,34 +231,12 @@ pub struct ACommonExtLoan2<'info> {
     pub system_program: Program<'info, System>,
 }
 
-
-impl<'info> ACommonExtLoan2<'info> {
-    pub fn add_loans_by_date(&mut self, borrowed: u64, collateral: u64) -> Result<()> {
-        let daily_state = &mut self.daily_state_end_date;
-        let global_state = &mut self.common.global_state;
-        daily_state.borrowed += borrowed;
-        daily_state.collateral += collateral;
-        global_state.total_borrowed += borrowed;
-        global_state.total_collateral += collateral;
-        Ok(())
-    }
-    pub fn sub_loans_by_date(&mut self, borrowed: u64, collateral: u64, date: i64) -> Result<()> {
-        let daily_state = &mut self.daily_state_old_end_date;
-        let global_state = &mut self.common.global_state;
-        daily_state.borrowed -= borrowed;
-        daily_state.collateral -= collateral;
-        global_state.total_borrowed -= borrowed;
-        global_state.total_collateral -= collateral;
-        Ok(())
-    }
-}
-
-
 #[derive(Accounts)]
 pub struct ACommonExtSubLoan<'info> {
     pub common: ACommon<'info>, // Embed the existing ACommon struct
     
     #[account(
+        mut,
         seeds = [
             b"daily-stats".as_ref(),
             get_date_string_from_timestamp(common.user_loan.end_date).as_bytes()
@@ -284,14 +247,34 @@ pub struct ACommonExtSubLoan<'info> {
 }
 
 
-impl<'info> ACommonExtSubLoan<'info> {
-    pub fn sub_loans_by_date(&mut self, borrowed: u64, collateral: u64, date: i64) -> Result<()> {
-        let daily_state = &mut self.daily_state_old_end_date;
-        let global_state = &mut self.common.global_state;
-        daily_state.borrowed -= borrowed;
-        daily_state.collateral -= collateral;
-        global_state.total_borrowed -= borrowed;
-        global_state.total_collateral -= collateral;
-        Ok(())
-    }
+#[derive(Accounts)]
+#[instruction(number_of_days: i64)]
+pub struct ACommonExtExtendLoan<'info> {
+    pub common: ACommon<'info>, // Embed the existing ACommon struct
+    
+    #[account(mut)]
+    pub user: Signer<'info>,
+    
+    #[account(
+        mut,
+        seeds = [
+            b"daily-stats".as_ref(),
+            get_date_string_from_timestamp(common.user_loan.end_date).as_bytes()
+        ],
+        bump
+    )]
+    pub daily_state_old_end_date: Box<Account<'info, DailyStats>>, 
+
+    #[account(
+        init_if_needed,
+        payer = user,
+        space = 8 + DailyStats::MAX_SIZE,
+        seeds = [
+            b"daily-stats".as_ref(),
+            get_date_string_from_timestamp(common.user_loan.end_date + (number_of_days) * SECONDS_IN_A_DAY).as_bytes()
+        ],
+        bump
+    )]
+    pub daily_state_new_end_date: Box<Account<'info, DailyStats>>, 
+    pub system_program: Program<'info, System>,
 }

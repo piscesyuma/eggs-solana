@@ -5,7 +5,7 @@ use crate::{
     constants::{
         FEES_BUY, FEES_SELL, FEE_BASE_1000, MIN, SECONDS_IN_A_DAY, VAULT_SEED
     }, context::{ACommonExtLoan, ACommonExtLoan2}, error::MushiProgramError, utils::{
-        burn_tokens, get_interest_fee, get_midnight_timestamp, liquidate, mint_to_tokens_by_main_state, transfer_sol, transfer_tokens
+        add_loans_by_date, burn_tokens, get_interest_fee, get_midnight_timestamp, liquidate, mint_to_tokens_by_main_state, sub_loans_by_date, transfer_sol, transfer_tokens
     }
 };
 use crate::context::common::ACommon;
@@ -40,8 +40,8 @@ pub fn extend_loan(ctx:Context<ACommonExtLoan2>, number_of_days: u64, sol_amount
         ctx.accounts.common.system_program.to_account_info(), 
         fee_address_fee, 
         Some(signer_seeds))?;
-    ctx.accounts.sub_loans_by_date(borrowed, collateral, old_end_date)?;
-    ctx.accounts.add_loans_by_date(borrowed, collateral)?;
+    sub_loans_by_date(&mut ctx.accounts.common.global_state, &mut ctx.accounts.daily_state_old_end_date, borrowed, collateral)?;
+    add_loans_by_date(&mut ctx.accounts.common.global_state, &mut ctx.accounts.daily_state_end_date, borrowed, collateral)?;
     let user_loan = &mut ctx.accounts.common.user_loan;
     user_loan.end_date = new_end_date;
     user_loan.number_of_days = number_of_days + _number_of_days;

@@ -5,7 +5,7 @@ use crate::{
     constants::{
         FEES_BUY, FEES_SELL, FEE_BASE_1000, MIN, SECONDS_IN_A_DAY, VAULT_SEED
     }, context::{ACommonExtLoan, ACommonExtLoan2, ACommonExtSubLoan}, error::MushiProgramError, utils::{
-        burn_tokens, get_interest_fee, get_midnight_timestamp, liquidate, mint_to_tokens_by_main_state, transfer_sol, transfer_tokens
+        burn_tokens, get_interest_fee, get_midnight_timestamp, liquidate, mint_to_tokens_by_main_state, sub_loans_by_date, transfer_sol, transfer_tokens
     }
 };
 use crate::context::common::ACommon;
@@ -33,7 +33,7 @@ pub fn close_position(ctx:Context<ACommonExtSubLoan>, sol_amount: u64)->Result<(
         collateral,
         Some(signer_seeds)
     )?;
-    ctx.accounts.sub_loans_by_date(borrowed, collateral, user_loan.end_date)?;
+    sub_loans_by_date(&mut ctx.accounts.common.global_state, &mut ctx.accounts.daily_state_old_end_date, borrowed, collateral)?;
 
     let user_loan = &mut ctx.accounts.common.user_loan;
     user_loan.borrowed = 0;
@@ -95,7 +95,7 @@ pub fn flash_close_position(ctx:Context<ACommonExtSubLoan>)->Result<()>{
         ctx.accounts.common.system_program.to_account_info(),
         fee_address_fee,
             Some(signer_seeds))?;
-    ctx.accounts.sub_loans_by_date(borrowed, collateral, user_loan.end_date)?;
+    sub_loans_by_date(&mut ctx.accounts.common.global_state, &mut ctx.accounts.daily_state_old_end_date, borrowed, collateral)?;
     let user_loan = &mut ctx.accounts.common.user_loan;
     user_loan.borrowed = 0;
     user_loan.collateral = 0;

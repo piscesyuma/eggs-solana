@@ -1397,8 +1397,7 @@ export class MushiProgramRpc {
             tokenProgram,
             systemProgram,
           },
-          user,
-          dailyStateEndDate: web3.PublicKey.findProgramAddressSync(
+          dailyStateOldEndDate: web3.PublicKey.findProgramAddressSync(
             [Buffer.from("daily-stats"), Buffer.from(getDateStringFromTimestamp(Number(endDate)))],
             this.programId
           )[0],

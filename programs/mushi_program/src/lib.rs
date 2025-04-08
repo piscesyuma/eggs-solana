@@ -51,7 +51,7 @@ pub mod mushi_program {
         ixs::borrow(ctx, number_of_days, sol_amount)
     }
 
-    pub fn borrow_more(ctx: Context<ACommonExtBorrowMore>, sol_amount: u64) -> Result<()> {
+    pub fn borrow_more(ctx: Context<ACommonExtSubLoan>, sol_amount: u64) -> Result<()> {
         ixs::borrow_more(ctx, sol_amount)
     }
 

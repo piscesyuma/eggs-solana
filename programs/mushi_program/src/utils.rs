@@ -241,3 +241,19 @@ pub fn get_date_string_from_timestamp(timestamp: i64) -> String {
 fn is_leap_year(year: i64) -> bool {
     (year % 4 == 0) && (year % 100 != 0 || year % 400 == 0)
 }
+
+pub fn add_loans_by_date(global_state: &mut Box<Account<GlobalStats>>, daily_state: &mut Box<Account<DailyStats>>, borrowed: u64, collateral: u64) -> Result<()> {
+    daily_state.borrowed += borrowed;
+    daily_state.collateral += collateral;
+    global_state.total_borrowed += borrowed;
+    global_state.total_collateral += collateral;
+    Ok(())
+}
+
+pub fn sub_loans_by_date(global_state: &mut Box<Account<GlobalStats>>, daily_state: &mut Box<Account<DailyStats>>, borrowed: u64, collateral: u64) -> Result<()> {
+    daily_state.borrowed -= borrowed;
+    daily_state.collateral -= collateral;
+    global_state.total_borrowed -= borrowed;
+    global_state.total_collateral -= collateral;
+    Ok(())
+}

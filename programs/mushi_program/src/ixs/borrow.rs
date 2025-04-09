@@ -34,7 +34,7 @@ pub fn borrow(ctx:Context<ACommonExtLoan>, number_of_days: u64, sol_amount:u64)-
         ctx.accounts.common.token_vault.to_account_info(),
         ctx.accounts.common.token.to_account_info(),
         ctx.accounts.common.token_vault_owner.to_account_info(),
-        ctx.accounts.common.token_program.to_account_info(),   
+        ctx.accounts.common.base_token_program.to_account_info(),   
         *ctx.bumps.get("token_vault_owner").unwrap(),
     )?;
 
@@ -54,7 +54,7 @@ pub fn borrow(ctx:Context<ACommonExtLoan>, number_of_days: u64, sol_amount:u64)-
         ctx.accounts.common.user_ata.to_account_info(),
         ctx.accounts.common.token_vault.to_account_info(),
         ctx.accounts.user.to_account_info(),
-        ctx.accounts.common.token_program.to_account_info(),
+        ctx.accounts.common.base_token_program.to_account_info(),
         user_mushi,
         None,
     )?;
@@ -98,7 +98,7 @@ pub fn borrow_more(ctx:Context<ACommonExtSubLoan>, sol_amount:u64)->Result<()>{
         ctx.accounts.common.token_vault.to_account_info(),
         ctx.accounts.common.token.to_account_info(),
         ctx.accounts.common.token_vault_owner.to_account_info(),
-        ctx.accounts.common.token_program.to_account_info(),
+        ctx.accounts.common.base_token_program.to_account_info(),
         *ctx.bumps.get("token_vault_owner").unwrap(),
     )?;
     let user_borrowed = user_loan.borrowed;
@@ -135,7 +135,7 @@ pub fn borrow_more(ctx:Context<ACommonExtSubLoan>, sol_amount:u64)->Result<()>{
             ctx.accounts.common.user_ata.to_account_info(),
             ctx.accounts.common.token_vault.to_account_info(),
             ctx.accounts.common.user.to_account_info(),
-            ctx.accounts.common.token_program.to_account_info(),
+            ctx.accounts.common.base_token_program.to_account_info(),
             require_collateral_from_user,
             None,
         )?;

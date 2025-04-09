@@ -5,30 +5,30 @@ seeds = false
 skip-lint = false
 
 [programs.localnet]
-mushi_program = "HF5x1bCgynzEnBL7ATMFYPNFjBaqfxgMASyUJL2ud6Xi"
+mushi_program = "9eykXRhjtB3PXZSd4ZwYVyajyACC5D3iGgTBvjYNbFpK"
 
 [registry]
 url = "https://api.apr.dev"
 
 [provider]
 cluster = "Localnet"
-wallet = "/root/.config/solana/id.json"
+wallet = "/root/.config/solana/main_id.json"
 
 [scripts]
-init = "yarn run ts-mocha -p ./tsconfig.json -t 1000000 tests/**/init.ts"
-start = "yarn run ts-mocha -p ./tsconfig.json -t 1000000 tests/**/start.ts"
-buy = "yarn run ts-mocha -p ./tsconfig.json -t 1000000 tests/**/buy.ts"
-buyReferral = "yarn run ts-mocha -p ./tsconfig.json -t 1000000 tests/**/buy_referral.ts"
-sell = "yarn run ts-mocha -p ./tsconfig.json -t 1000000 tests/**/sell.ts"
 borrow = "yarn run ts-mocha -p ./tsconfig.json -t 1000000 tests/**/borrow.ts"
 borrowMore = "yarn run ts-mocha -p ./tsconfig.json -t 1000000 tests/**/borrow_more.ts"
-leverage = "yarn run ts-mocha -p ./tsconfig.json -t 1000000 tests/**/leverage.ts"
-repay = "yarn run ts-mocha -p ./tsconfig.json -t 1000000 tests/**/repay.ts"
-removeCollateral = "yarn run ts-mocha -p ./tsconfig.json -t 1000000 tests/**/remove_collateral.ts"
+buy = "yarn run ts-mocha -p ./tsconfig.json -t 1000000 tests/**/buy.ts"
+buyReferral = "yarn run ts-mocha -p ./tsconfig.json -t 1000000 tests/**/buy_referral.ts"
 closePosition = "yarn run ts-mocha -p ./tsconfig.json -t 1000000 tests/**/close_position.ts"
+extendLoan = "yarn run ts-mocha -p ./tsconfig.json -t 1000000 tests/**/extend_loan.ts"
 flashClose = "yarn run ts-mocha -p ./tsconfig.json -t 1000000 tests/**/flash_close_position.ts"
 getStats = "yarn run ts-mocha -p ./tsconfig.json -t 1000000 tests/**/getStats.ts"
-extendLoan = "yarn run ts-mocha -p ./tsconfig.json -t 1000000 tests/**/extend_loan.ts"
+init = "yarn run ts-mocha -p ./tsconfig.json -t 1000000 tests/**/init.ts"
+leverage = "yarn run ts-mocha -p ./tsconfig.json -t 1000000 tests/**/leverage.ts"
+removeCollateral = "yarn run ts-mocha -p ./tsconfig.json -t 1000000 tests/**/remove_collateral.ts"
+repay = "yarn run ts-mocha -p ./tsconfig.json -t 1000000 tests/**/repay.ts"
+sell = "yarn run ts-mocha -p ./tsconfig.json -t 1000000 tests/**/sell.ts"
+start = "yarn run ts-mocha -p ./tsconfig.json -t 1000000 tests/**/start.ts"
 test = "yarn run ts-mocha -p ./tsconfig.json -t 1000000 tests/**/*.ts"
 updateAdmin = "yarn run ts-mocha -p ./tsconfig.json -t 1000000 tests/**/updateAdmin.ts"
 updateFeeReceiver = "yarn run ts-mocha -p ./tsconfig.json -t 1000000 tests/**/updateFeeReceiver.ts"

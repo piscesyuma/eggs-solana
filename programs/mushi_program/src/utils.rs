@@ -1,3 +1,9 @@
+use crate::state::DailyStats;
+use crate::{
+    constants::{FEES_BUY, LAMPORTS_PER_SOL, SECONDS_IN_A_DAY, VAULT_SEED},
+    error::MushiProgramError,
+    state::{GlobalStats, MainState},
+};
 use anchor_lang::{
     prelude::*,
     solana_program::{
@@ -5,12 +11,9 @@ use anchor_lang::{
         system_instruction::transfer,
     },
 };
-use anchor_spl::token::{self, Burn, MintTo, Token, TokenAccount, Transfer};
-use crate::state::DailyStats;
-use crate::{
-    constants::{FEES_BUY, SECONDS_IN_A_DAY, VAULT_SEED, LAMPORTS_PER_SOL}, 
-    state::{MainState, GlobalStats},
-    error::MushiProgramError,
+use anchor_spl::{
+    token::{self, Burn, MintTo, Token, TokenAccount, Transfer},
+    token_2022::{self, transfer_checked, TransferChecked},
 };
 
 pub fn mint_to_tokens_by_main_state<'info>(
@@ -74,11 +77,50 @@ pub fn transfer_tokens<'info>(
     };
     if let Some(signer_seeds) = signer_seeds {
         token::transfer(
-            CpiContext::new_with_signer(token_program.clone(), token_transfer_accounts, signer_seeds),
+            CpiContext::new_with_signer(
+                token_program.clone(),
+                token_transfer_accounts,
+                signer_seeds,
+            ),
             amount,
         )?;
     } else {
-        token::transfer(CpiContext::new(token_program, token_transfer_accounts), amount)?;
+        token::transfer(
+            CpiContext::new(token_program, token_transfer_accounts),
+            amount,
+        )?;
+    }
+    Ok(())
+}
+
+pub fn transfer_tokens_checked<'info>(
+    from: AccountInfo<'info>,
+    to: AccountInfo<'info>,
+    authority: AccountInfo<'info>,
+    mint: AccountInfo<'info>,
+    token_program: AccountInfo<'info>,
+    amount: u64,
+    decimals: u8,
+    signer_seeds: Option<&[&[&[u8]]]>,
+) -> Result<()> {
+    let token_transfer_accounts = TransferChecked {
+        from,
+        to,
+        authority,
+        mint,
+    };
+    if let Some(signer_seeds) = signer_seeds {
+        token_2022::transfer_checked(
+            CpiContext::new_with_signer(token_program, token_transfer_accounts, signer_seeds),
+            amount,
+            decimals,
+        )?;
+    } else {
+        token_2022::transfer_checked(
+            CpiContext::new(token_program, token_transfer_accounts),
+            amount,
+            decimals,
+        )?;
     }
     Ok(())
 }
@@ -179,11 +221,11 @@ pub fn get_interest_fee(amount: u64, number_of_days: u64) -> u64 {
     // Daily interest rate of 3.9% (0.039) plus base fee of 0.1% (0.001)
     // Using 1e9 as precision factor since we're working with u64 instead of u256
     let daily_rate = 39_000_000; // 0.039 * 1e9
-    let base_fee = 1_000_000;    // 0.001 * 1e9
-    
+    let base_fee = 1_000_000; // 0.001 * 1e9
+
     // Calculate total interest rate: (daily_rate * days / 365) + base_fee
     let total_interest = ((daily_rate as u128 * number_of_days as u128) / 365) + base_fee as u128;
-    
+
     // Calculate final fee: (amount * total_interest) / 1e9
     ((amount as u128 * total_interest) / 1_000_000_000) as u64
 }
@@ -193,15 +235,15 @@ pub fn get_interest_fee(amount: u64, number_of_days: u64) -> u64 {
 pub fn get_date_string_from_timestamp(timestamp: i64) -> String {
     // Normalize to midnight
     let normalized_timestamp = get_date_from_timestamp(timestamp);
-    
+
     // Create a readable date in UTC
     let seconds = normalized_timestamp;
     let days_since_epoch = seconds / SECONDS_IN_A_DAY;
-    
+
     // 1970-01-01 is the Unix epoch (day 0)
     let mut year = 1970;
     let mut days_remaining = days_since_epoch;
-    
+
     // Advance through years
     loop {
         let days_in_year = if is_leap_year(year) { 366 } else { 365 };
@@ -211,14 +253,14 @@ pub fn get_date_string_from_timestamp(timestamp: i64) -> String {
         days_remaining -= days_in_year;
         year += 1;
     }
-    
+
     // Determine month and day
     let days_in_months = if is_leap_year(year) {
         [31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
     } else {
         [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
     };
-    
+
     let mut month = 0;
     for days_in_month in days_in_months.iter() {
         if days_remaining < *days_in_month {
@@ -227,12 +269,12 @@ pub fn get_date_string_from_timestamp(timestamp: i64) -> String {
         days_remaining -= *days_in_month;
         month += 1;
     }
-    
+
     // Month is 0-based in our calculation, but we want 1-based
     let month = month + 1;
     // Day is 0-based, need to add 1
     let day = days_remaining + 1;
-    
+
     // Format as YYYY-MM-DD
     format!("{:04}-{:02}-{:02}", year, month, day)
 }
@@ -242,7 +284,12 @@ fn is_leap_year(year: i64) -> bool {
     (year % 4 == 0) && (year % 100 != 0 || year % 400 == 0)
 }
 
-pub fn add_loans_by_date(global_state: &mut Box<Account<GlobalStats>>, daily_state: &mut Box<Account<DailyStats>>, borrowed: u64, collateral: u64) -> Result<()> {
+pub fn add_loans_by_date(
+    global_state: &mut Box<Account<GlobalStats>>,
+    daily_state: &mut Box<Account<DailyStats>>,
+    borrowed: u64,
+    collateral: u64,
+) -> Result<()> {
     daily_state.borrowed += borrowed;
     daily_state.collateral += collateral;
     global_state.total_borrowed += borrowed;
@@ -250,10 +297,16 @@ pub fn add_loans_by_date(global_state: &mut Box<Account<GlobalStats>>, daily_sta
     Ok(())
 }
 
-pub fn sub_loans_by_date(global_state: &mut Box<Account<GlobalStats>>, daily_state: &mut Box<Account<DailyStats>>, borrowed: u64, collateral: u64) -> Result<()> {
+pub fn sub_loans_by_date(
+    global_state: &mut Box<Account<GlobalStats>>,
+    daily_state: &mut Box<Account<DailyStats>>,
+    borrowed: u64,
+    collateral: u64,
+) -> Result<()> {
     daily_state.borrowed -= borrowed;
     daily_state.collateral -= collateral;
     global_state.total_borrowed -= borrowed;
     global_state.total_collateral -= collateral;
     Ok(())
 }
+

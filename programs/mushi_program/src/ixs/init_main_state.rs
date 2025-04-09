@@ -1,6 +1,7 @@
-use anchor_lang::prelude::*;
-use crate::state::{MainState, GlobalStats, DailyStats};
+use crate::state::{DailyStats, GlobalStats, MainState};
 use crate::utils::get_midnight_timestamp;
+use anchor_lang::prelude::*;
+use anchor_spl::token_interface;
 #[derive(AnchorSerialize, AnchorDeserialize, Debug, Clone)]
 pub struct InitializeInput {
     pub fee_receiver: Pubkey,
@@ -17,10 +18,12 @@ pub fn init_main_state(ctx: Context<AInitializeState>, input: InitializeInput) -
     main_state.sell_fee = input.sell_fee;
     main_state.buy_fee = input.buy_fee;
     main_state.buy_fee_leverage = input.buy_fee_leverage;
+    main_state.quote_token = ctx.accounts.quote_token.key();
 
     // global state
     let global_state = &mut ctx.accounts.global_state;
-    global_state.last_liquidation_date = get_midnight_timestamp(Clock::get().unwrap().unix_timestamp);
+    global_state.last_liquidation_date =
+        get_midnight_timestamp(Clock::get().unwrap().unix_timestamp);
     Ok(())
 }
 
@@ -44,5 +47,6 @@ pub struct AInitializeState<'info> {
         space =  8 + MainState::MAX_SIZE,
     )]
     pub main_state: Box<Account<'info, MainState>>,
+    pub quote_token: InterfaceAccount<'info, token_interface::Mint>,
     pub system_program: Program<'info, System>,
 }

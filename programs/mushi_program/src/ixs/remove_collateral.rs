@@ -20,7 +20,7 @@ pub fn remove_collateral(ctx:Context<ACommonExtSubLoan>, amount: u64)->Result<()
         ctx.accounts.common.token_vault.to_account_info(),
         ctx.accounts.common.token.to_account_info(),
         ctx.accounts.common.token_vault_owner.to_account_info(),
-        ctx.accounts.common.token_program.to_account_info(),
+        ctx.accounts.common.base_token_program.to_account_info(),
         *ctx.bumps.get("token_vault_owner").unwrap(),
     )?;
     let user_loan = & ctx.accounts.common.user_loan;
@@ -39,7 +39,7 @@ pub fn remove_collateral(ctx:Context<ACommonExtSubLoan>, amount: u64)->Result<()
         ctx.accounts.common.token_vault.to_account_info(),
         ctx.accounts.common.user_ata.to_account_info(),
         ctx.accounts.common.token_vault_owner.to_account_info(),
-        ctx.accounts.common.token_program.to_account_info(),
+        ctx.accounts.common.base_token_program.to_account_info(),
         amount,
         Some(signer_seeds)
     )?;

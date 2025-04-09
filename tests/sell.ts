@@ -12,7 +12,7 @@ describe("mushi_program_sell", () => {
   const connection = provider.connection;
   const rpc = connection.rpcEndpoint;
   const programId = new web3.PublicKey(
-    "HF5x1bCgynzEnBL7ATMFYPNFjBaqfxgMASyUJL2ud6Xi"
+    "9eykXRhjtB3PXZSd4ZwYVyajyACC5D3iGgTBvjYNbFpK"
   );
   let mainStateInfo: MainStateInfo | null = null;
   let globalInfo: GlobalStateInfo | null = null;

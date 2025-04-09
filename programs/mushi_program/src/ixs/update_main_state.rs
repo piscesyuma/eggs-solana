@@ -1,4 +1,5 @@
 use anchor_lang::prelude::*;
+use anchor_spl::token_interface;
 
 use crate::{error::MushiProgramError, state::MainState};
 
@@ -18,18 +19,29 @@ pub fn update_main_state(
     let state = &mut ctx.accounts.main_state;
     state.admin = input.admin.unwrap_or(state.admin);
     state.fee_receiver = input.fee_receiver.unwrap_or(state.fee_receiver);
+    state.quote_token = ctx.accounts.quote_token.key();
+    state.quote_token = ctx.accounts.quote_token.key();
 
     let buy_fee = input.buy_fee.unwrap_or(state.buy_fee);
-    
-    require!(buy_fee <= 992 && buy_fee >= 975, MushiProgramError::InvalidBuyFee);
+
+    require!(
+        buy_fee <= 992 && buy_fee >= 975,
+        MushiProgramError::InvalidBuyFee
+    );
     state.buy_fee = buy_fee;
 
     let sell_fee = input.sell_fee.unwrap_or(state.sell_fee);
-    require!(sell_fee <= 992 && sell_fee >= 975, MushiProgramError::InvalidSellFee);
+    require!(
+        sell_fee <= 992 && sell_fee >= 975,
+        MushiProgramError::InvalidSellFee
+    );
     state.sell_fee = input.sell_fee.unwrap_or(state.sell_fee);
 
     let buy_fee_leverage = input.buy_fee_leverage.unwrap_or(state.buy_fee_leverage);
-    require!(buy_fee_leverage <= 25, MushiProgramError::InvalidBuyFeeLeverage);
+    require!(
+        buy_fee_leverage <= 25,
+        MushiProgramError::InvalidBuyFeeLeverage
+    );
     state.buy_fee_leverage = buy_fee_leverage;
     Ok(())
 }
@@ -44,4 +56,5 @@ pub struct AUpdateMainState<'info> {
         bump,
     )]
     pub main_state: Account<'info, MainState>,
+    pub quote_token: InterfaceAccount<'info, token_interface::Mint>,
 }

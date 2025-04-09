@@ -41,7 +41,7 @@ pub fn leverage(ctx:Context<ACommonExtLoan>, number_of_days: u64, sol_amount:u64
         ctx.accounts.common.token_vault.to_account_info(),
         ctx.accounts.common.token.to_account_info(),
         ctx.accounts.common.token_vault_owner.to_account_info(),
-        ctx.accounts.common.token_program.to_account_info(),
+        ctx.accounts.common.base_token_program.to_account_info(),
         bump,
     )?;
     
@@ -66,7 +66,7 @@ pub fn leverage(ctx:Context<ACommonExtLoan>, number_of_days: u64, sol_amount:u64
         ctx.accounts.common.token.to_account_info(),
         ctx.accounts.common.main_state.to_account_info(),
         ctx.accounts.common.token_vault.to_account_info(),
-        ctx.accounts.common.token_program.to_account_info(),
+        ctx.accounts.common.base_token_program.to_account_info(),
         user_mushi,
         main_state_bump,
     )?;

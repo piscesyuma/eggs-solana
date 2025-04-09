@@ -1,9 +1,7 @@
 use anchor_lang::prelude::*;
 
 use crate::{
-    constants::{
-        SECONDS_IN_A_DAY, FEE_BASE_1000,
-    },
+    constants::{FEE_BASE_1000, SECONDS_IN_A_DAY},
     error::MushiProgramError,
 };
 
@@ -14,6 +12,7 @@ pub struct MainState {
     pub buy_fee: u64,
     pub sell_fee: u64,
     pub buy_fee_leverage: u64,
+    pub quote_token: Pubkey,
 }
 
 impl MainState {

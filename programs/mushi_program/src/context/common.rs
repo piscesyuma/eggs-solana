@@ -69,6 +69,7 @@ pub struct ACommon<'info> {
         payer = user,
         associated_token::mint = token,
         associated_token::authority = user,
+        associated_token::token_program = base_token_program,
     )]
     pub user_ata: Box<InterfaceAccount<'info, token_interface::TokenAccount>>,
     #[account(
@@ -77,15 +78,61 @@ pub struct ACommon<'info> {
         bump,
     )]
     pub token_vault_owner: SystemAccount<'info>,
-    
     #[account(
         mut,
         token::mint = token,
         token::authority = token_vault_owner,
     )]
     pub token_vault: Box<InterfaceAccount<'info, token_interface::TokenAccount>>,
+
+    #[account(
+        mut,
+        address = main_state.quote_token,
+    )]
+    pub quote_mint: Box<InterfaceAccount<'info, token_interface::Mint>>,
+    #[account(
+        // init_if_needed,
+        // payer = user,
+        // associated_token::mint = quote_mint,
+        // associated_token::authority = token_vault_owner,
+        // associated_token::token_program = quote_token_program,
+
+        mut,
+        token::mint = quote_mint,
+        token::authority = token_vault_owner,
+        token::token_program = quote_token_program,
+    )]
+    pub quote_vault: Box<InterfaceAccount<'info, token_interface::TokenAccount>>,
+    #[account(
+        // init_if_needed,
+        // payer = user,
+        // associated_token::mint = quote_mint,
+        // associated_token::authority = user,
+        // associated_token::token_program = quote_token_program,
+
+        mut,
+        token::mint = quote_mint,
+        token::authority = user,
+        token::token_program = quote_token_program,
+    )]
+    pub user_quote_ata: Box<InterfaceAccount<'info, token_interface::TokenAccount>>,
+    #[account(
+        // init_if_needed,
+        // payer = user,
+        // associated_token::mint = quote_mint,
+        // associated_token::authority = fee_receiver,
+        // associated_token::token_program = quote_token_program,
+
+        mut,
+        token::mint = quote_mint,
+        token::authority = fee_receiver,
+        token::token_program = quote_token_program,
+    )]
+    pub fee_receiver_quote_ata: Box<InterfaceAccount<'info, token_interface::TokenAccount>>,
+
     pub associated_token_program: Program<'info, AssociatedToken>,
-    pub token_program: Interface<'info, token_interface::TokenInterface>,
+    pub base_token_program: Interface<'info, token_interface::TokenInterface>,
+    pub quote_token_program: Interface<'info, token_interface::TokenInterface>,
     pub system_program: Program<'info, System>,
 }
 

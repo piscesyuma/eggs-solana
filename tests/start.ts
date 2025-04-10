@@ -22,7 +22,7 @@ describe("sonic_program", () => {
   });
   const user = provider.publicKey;
 
-  const tokenName = "Mushi BaBara";
+  const tokenName = "Mushi";
   const tokenSymbol = "MUSHI";
   const tokenUri = "https://mushi.xyz";
 
@@ -30,7 +30,7 @@ describe("sonic_program", () => {
     const info = await connectivity.getMainStateInfo();
     if (info) {
       const startRes = await connectivity.start({
-        solAmount: 100,
+        solAmount: 1,
         tokenName,
         tokenSymbol,
         tokenUri,

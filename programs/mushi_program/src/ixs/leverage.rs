@@ -59,7 +59,7 @@ pub fn leverage(ctx:Context<ACommonExtLoan>, number_of_days: u64, sol_amount:u64
     let signer_seeds:&[&[&[u8]]] = &[&[VAULT_SEED, &[bump]]];
 
     // Calculate user_mushi before borrowing ctx.accounts mutably again
-    let user_mushi = ctx.accounts.common.sol_to_mushi_lev(user_sol, sub_value)?;
+    let user_mushi = ctx.accounts.common.sol_to_mushi_lev(user_sol, sub_value, total_fee)?;
     
     // Mint tokens
     mint_to_tokens_by_main_state(

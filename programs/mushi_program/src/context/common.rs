@@ -192,7 +192,7 @@ impl<'info> ACommon<'info> {
         } else {
             backing = backing.checked_sub(sol_amount).unwrap();
         }
-        
+
         let new_price: u64 = (backing as u128).checked_mul(LAMPORTS_PER_SOL as u128).unwrap()
         .checked_div(self.global_state.token_supply as u128).unwrap() as u64;
         let _total_collateral = self.token_vault.amount;
@@ -229,12 +229,11 @@ pub struct ACommonExtReferral<'info> {
     
     #[account(
         mut,
-        address = referral_address,
     )]
     pub referral: SystemAccount<'info>,
 
     #[account(
-        init_if_needed,
+        init,
         payer = common.user,
         associated_token::mint = common.quote_mint,
         associated_token::authority = referral,

@@ -5,6 +5,7 @@ import {
   ASSOCIATED_TOKEN_PROGRAM_ID,
   createAssociatedTokenAccount,
   createAssociatedTokenAccountInstruction,
+  getAssociatedTokenAddress,
   getAssociatedTokenAddressSync,
   TOKEN_2022_PROGRAM_ID,
   TOKEN_PROGRAM_ID,
@@ -554,31 +555,20 @@ export class MushiProgramRpc {
       const rawSolAmount = Math.trunc(solAmount * SOL_DECIMALS_HELPER);
       const mainStateInfo = await this.getMainStateInfo();
       if (!mainStateInfo) throw "Failed to get main state info";
-      const { feeReceiver, quoteToken } = mainStateInfo;
-      // Create referral quote ATA if needed
-      let referralQuoteAta = getAssociatedTokenAddressSync(
-        quoteToken,
-        referral.publicKey,
-        true,
-        quoteTokenProgram,
-      );
-      console.log("referralQuoteAta", referralQuoteAta.toBase58())
-      // const referralQuoteAtaInfo = await this.connection.getAccountInfo(referralQuoteAta);
-      // log({ referralQuoteAtaInfo });
-      // if (!referralQuoteAtaInfo) {
-      //   await safeAirdrop(referral.publicKey, this.connection)
-      //   await delay(10000)
+      const { quoteToken } = mainStateInfo;
 
-      //   referralQuoteAta = await createAssociatedTokenAccount(
-      //     this.connection,
-      //     referral,
-      //     quoteToken,
-      //     referral.publicKey,
-      //     undefined,
-      //     quoteTokenProgram
-      //   );
-      // }
-      console.log("referralQuoteAta", referralQuoteAta.toBase58())
+      let referralQuoteAta = await getAssociatedTokenAddress(
+        quoteToken,           // quote mint pubkey
+        referral.publicKey,     // referral account pubkey
+        true,                // allowOwnerOffCurve = false
+        quoteTokenProgram
+      );
+
+      console.log("Referral public key:", referral.publicKey.toBase58());
+      console.log("Quote token:", quoteToken.toBase58());
+      console.log("Quote token program:", quoteTokenProgram.toBase58());
+      console.log("Derived ATA:", referralQuoteAta.toBase58());
+
       const referralPubkey = referral.publicKey;
       
       const baseCommonContext = await this.getBaseCommonContext();
@@ -598,7 +588,7 @@ export class MushiProgramRpc {
         .instruction();
       
       const ixs = [
-        web3.ComputeBudgetProgram.setComputeUnitLimit({ units: 150_000 }),
+        web3.ComputeBudgetProgram.setComputeUnitLimit({ units: 300_000 }),
         ix,
       ];
       

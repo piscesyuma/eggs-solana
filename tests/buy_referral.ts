@@ -6,6 +6,11 @@ import { MainStateInfo, GlobalStateInfo, sleep, MushiProgramRpc, getCurrentDateS
 import { getAssociatedTokenAddressSync, createAssociatedTokenAccount, TOKEN_2022_PROGRAM_ID } from "@solana/spl-token";
 import { safeAirdrop } from "./utils";
 import { createAssociatedTokenAccountInstruction } from "@solana/spl-token";
+import * as path from 'path';
+import * as dotenv from 'dotenv';
+
+// Load environment variables from .env file
+dotenv.config({ path: path.resolve(__dirname, '../.env') });
 
 const log = console.log;
 describe("mushi_program_buy_with_referral", () => {
@@ -31,6 +36,26 @@ describe("mushi_program_buy_with_referral", () => {
   // Parameters for the buy operation
   const solAmount = 1; // Amount of SOL to buy tokens with
 
+  it ("Airdrop SOL to referral", async () => {
+    await safeAirdrop(referralPubkey, connection);
+    await sleep(5000);
+
+    const quoteToken = new web3.PublicKey(process.env.ECLIPSE_TOKEN_MINT!);
+    console.log("Quote token:", quoteToken.toBase58());
+
+    // const user1Ata = await createAssociatedTokenAccount (
+    //   provider.connection,
+    //   referral,
+    //   quoteToken,
+    //   referral.publicKey,
+    //   undefined,
+    //   TOKEN_2022_PROGRAM_ID,
+    //   undefined,
+    //   false,
+    // )
+    // console.log("Referral quote token account:", user1Ata.toBase58());
+  });
+
   it("Get initial state info", async () => {
     mainStateInfo = await connectivity.getMainStateInfo();
     if (!mainStateInfo) throw "Failed to get main state info";
@@ -54,44 +79,6 @@ describe("mushi_program_buy_with_referral", () => {
   it("Buy tokens with SOL", async () => {
     if (!globalInfo || !mainStateInfo) throw "Global state info is not available";
     
-    // First, airdrop some SOL to referral
-    await safeAirdrop(referralPubkey, connection);
-    await sleep(5000);
-    
-    // Get quote token address
-    const quoteToken = mainStateInfo.quoteToken;
-    
-    // Create referral quote ATA explicitly
-    const referralQuoteAta = getAssociatedTokenAddressSync(
-      quoteToken,
-      referralPubkey,
-      true,
-      TOKEN_2022_PROGRAM_ID
-    );
-    
-    // Check if the ATA already exists
-    const ataInfo = await connection.getAccountInfo(referralQuoteAta);
-    
-    // If it doesn't exist, create it
-    if (!ataInfo) {
-      log("Creating referral quote ATA...");
-      
-      // Create a transaction to create the associated token account
-      const ix = createAssociatedTokenAccountInstruction(
-        provider.publicKey,
-        referralQuoteAta,
-        referralPubkey,
-        quoteToken,
-        TOKEN_2022_PROGRAM_ID
-      );
-      
-      const transaction = new web3.Transaction().add(ix);
-      const signature = await provider.sendAndConfirm(transaction);
-      
-      log("Created referral quote ATA:", signature);
-      await sleep(5000);
-    }
-
     // Perform the buy operation with debug=true to show date strings
     const buyRes = await connectivity.buy_with_referral(solAmount, referral);
     if (!buyRes.isPass) throw "Failed to buy tokens";
@@ -99,7 +86,7 @@ describe("mushi_program_buy_with_referral", () => {
     log({ buyRes: buyRes.info });
 
     // Wait for the transaction to be processed
-    await sleep(10_000);
+    await sleep(20_000);
     
     // Verify the operation by getting updated state
     const updatedGlobalInfo = await connectivity.getGlobalInfo();

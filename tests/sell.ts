@@ -3,7 +3,11 @@ import { web3 } from "@coral-xyz/anchor";
 import { Program } from "@coral-xyz/anchor";
 import { MushiProgram } from "../target/types/mushi_program";
 import { MainStateInfo, GlobalStateInfo, sleep, MushiProgramRpc } from "./mushiProgramRpc";
+import * as path from 'path';
+import * as dotenv from 'dotenv';
 
+// Load environment variables from .env file
+dotenv.config({ path: path.resolve(__dirname, '../.env') });
 const log = console.log;
 describe("mushi_program_sell", () => {
   // Configure the client to use the local cluster.
@@ -11,9 +15,12 @@ describe("mushi_program_sell", () => {
   const provider = anchor.AnchorProvider.env();
   const connection = provider.connection;
   const rpc = connection.rpcEndpoint;
-  const programId = new web3.PublicKey(
-    "9eykXRhjtB3PXZSd4ZwYVyajyACC5D3iGgTBvjYNbFpK"
-  );
+  // Define programId - use from env if available or use default
+  const programId = process.env.PROGRAM_ID 
+    ? new web3.PublicKey(process.env.PROGRAM_ID) 
+    : new web3.PublicKey("HF5x1bCgynzEnBL7ATMFYPNFjBaqfxgMASyUJL2ud6Xi");
+  
+
   let mainStateInfo: MainStateInfo | null = null;
   let globalInfo: GlobalStateInfo | null = null;
   const connectivity = new MushiProgramRpc({

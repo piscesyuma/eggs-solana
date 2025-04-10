@@ -39,8 +39,8 @@ pub mod mushi_program {
         ixs::buy(ctx, sol_amount)
     }
 
-    pub fn buy_with_referral(ctx: Context<ACommonExtReferral>, input: BuyWithReferralInput) -> Result<()> {
-        ixs::buy_with_referral(ctx, input)
+    pub fn buy_with_referral(ctx: Context<ACommonExtReferral>, referral_address: Pubkey, sol_amount: u64) -> Result<()> {
+        ixs::buy_with_referral(ctx, referral_address, sol_amount)
     }
 
     pub fn sell(ctx: Context<ACommon>, token_amount: u64) -> Result<()> {

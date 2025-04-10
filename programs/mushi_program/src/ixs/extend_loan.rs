@@ -40,6 +40,9 @@ pub fn extend_loan(ctx:Context<ACommonExtExtendLoan>, number_of_days: u64 )->Res
         None,
     )?;
 
+    let signer_seeds: &[&[&[u8]]] =
+        &[&[VAULT_SEED, &[*ctx.bumps.get("token_vault_owner").unwrap()]]];
+
     transfer_tokens_checked(
         ctx.accounts.common.quote_vault.to_account_info(),
         ctx.accounts.common.fee_receiver_quote_ata.to_account_info(),
@@ -48,7 +51,7 @@ pub fn extend_loan(ctx:Context<ACommonExtExtendLoan>, number_of_days: u64 )->Res
         quote_token_program.clone(),
         fee_address_fee, 
         decimals,
-        None,
+        Some(signer_seeds),
     )?;
 
     sub_loans_by_date(&mut ctx.accounts.common.global_state, &mut ctx.accounts.daily_state_old_end_date, borrowed, collateral)?;

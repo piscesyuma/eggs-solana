@@ -94,6 +94,9 @@ pub fn flash_close_position(ctx:Context<ACommonExtSubLoan>)->Result<()>{
     let quote_token_program = ctx.accounts.common.quote_token_program.to_account_info();
     let decimals = ctx.accounts.common.quote_mint.decimals;
 
+    let signer_seeds: &[&[&[u8]]] =
+        &[&[VAULT_SEED, &[*ctx.bumps.get("token_vault_owner").unwrap()]]];
+
     transfer_tokens_checked(
         ctx.accounts.common.quote_vault.to_account_info(),
         ctx.accounts.common.user_quote_ata.to_account_info(),
@@ -102,7 +105,7 @@ pub fn flash_close_position(ctx:Context<ACommonExtSubLoan>)->Result<()>{
         quote_token_program.clone(),
         to_user, 
         decimals,
-        None,
+        Some(signer_seeds),
     )?;
 
     transfer_tokens_checked(
@@ -113,7 +116,7 @@ pub fn flash_close_position(ctx:Context<ACommonExtSubLoan>)->Result<()>{
         quote_token_program.clone(),
         to_user, 
         decimals,
-        None,
+        Some(signer_seeds),
     )?;
 
     sub_loans_by_date(&mut ctx.accounts.common.global_state, &mut ctx.accounts.daily_state_old_end_date, borrowed, collateral)?;

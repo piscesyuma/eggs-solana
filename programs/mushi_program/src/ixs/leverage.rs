@@ -85,6 +85,9 @@ pub fn leverage(ctx:Context<ACommonExtLoan>, number_of_days: u64, sol_amount:u64
         None,
     )?;
 
+    let signer_seeds: &[&[&[u8]]] =
+        &[&[VAULT_SEED, &[*ctx.bumps.get("token_vault_owner").unwrap()]]];
+
     transfer_tokens_checked(
         ctx.accounts.common.quote_vault.to_account_info(),
         ctx.accounts.common.fee_receiver_quote_ata.to_account_info(),
@@ -93,7 +96,7 @@ pub fn leverage(ctx:Context<ACommonExtLoan>, number_of_days: u64, sol_amount:u64
         quote_token_program.clone(),
         fee_address_amount, 
         decimals,
-        None,
+        Some(signer_seeds),
     )?;
     
     // Update loans by date

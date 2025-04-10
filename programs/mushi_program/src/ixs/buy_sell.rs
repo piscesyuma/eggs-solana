@@ -48,36 +48,34 @@ pub fn buy(ctx: Context<ACommon>, sol_amount: u64) -> Result<()> {
     require!(fee > MIN, MushiProgramError::TooSmallTeamFee);
     let left_sol_amount = sol_amount.checked_sub(fee).unwrap();
 
-    {
-        // sending quote token
-        let authority = ctx.accounts.user.to_account_info();
-        let from = ctx.accounts.user_quote_ata.to_account_info();
-        let decimals = ctx.accounts.quote_mint.decimals;
-        let mint = ctx.accounts.quote_mint.to_account_info();
-        let token_program = ctx.accounts.quote_token_program.to_account_info();
-        // paying fees(in quote)
-        transfer_tokens_checked(
-            from.clone(),
-            ctx.accounts.fee_receiver_quote_ata.to_account_info(),
-            authority.clone(),
-            mint.clone(),
-            token_program.clone(),
-            fee,
-            decimals,
-            None,
-        )?;
-        // paying quotes
-        transfer_tokens_checked(
-            from.clone(),
-            ctx.accounts.quote_vault.to_account_info(),
-            authority.clone(),
-            mint.clone(),
-            token_program.clone(),
-            left_sol_amount,
-            decimals,
-            None,
-        )?;
-    }
+    // sending quote token
+    let authority = ctx.accounts.user.to_account_info();
+    let from = ctx.accounts.user_quote_ata.to_account_info();
+    let decimals = ctx.accounts.quote_mint.decimals;
+    let mint = ctx.accounts.quote_mint.to_account_info();
+    let token_program = ctx.accounts.quote_token_program.to_account_info();
+    // paying fees(in quote)
+    transfer_tokens_checked(
+        from.clone(),
+        ctx.accounts.fee_receiver_quote_ata.to_account_info(),
+        authority.clone(),
+        mint.clone(),
+        token_program.clone(),
+        fee,
+        decimals,
+        None,
+    )?;
+    // paying quotes
+    transfer_tokens_checked(
+        from.clone(),
+        ctx.accounts.quote_vault.to_account_info(),
+        authority.clone(),
+        mint.clone(),
+        token_program.clone(),
+        left_sol_amount,
+        decimals,
+        None,
+    )?;
 
     ctx.accounts.safety_check()?;
     Ok(())
@@ -91,11 +89,9 @@ pub struct BuyWithReferralInput {
 
 pub fn buy_with_referral(
     ctx: Context<ACommonExtReferral>,
-    input: BuyWithReferralInput,
+    referral_address: Pubkey,
+    sol_amount: u64,
 ) -> Result<()> {
-    let sol_amount = input.sol_amount;
-    let referral = &mut ctx.accounts.referral;
-
     let mushi = ctx.accounts.common.sol_to_mushi(sol_amount)?;
     let global_state = &mut ctx.accounts.common.global_state;
     liquidate(
@@ -109,11 +105,6 @@ pub fn buy_with_referral(
     )?;
     let is_started = global_state.started;
     require!(is_started, MushiProgramError::NotStarted);
-
-    require!(
-        ctx.accounts.referral.key() == input.referral_pubkey,
-        MushiProgramError::InvalidReferralAccount
-    );
 
     // minting tokens
     mint_to_tokens_by_main_state(
@@ -178,7 +169,7 @@ pub fn buy_with_referral(
 
         transfer_tokens_checked(
             from.clone(),
-            ctx.accounts.common.user_quote_ata.to_account_info(),
+            ctx.accounts.common.quote_vault.to_account_info(),
             authority.clone(),
             mint.clone(),
             token_program.clone(),

@@ -104,29 +104,29 @@ pub struct ACommon<'info> {
     )]
     pub quote_vault: Box<InterfaceAccount<'info, token_interface::TokenAccount>>,
     #[account(
-        init_if_needed,
-        payer = user,
-        associated_token::mint = quote_mint,
-        associated_token::authority = user,
-        associated_token::token_program = quote_token_program,
+        // init_if_needed,
+        // payer = user,
+        // associated_token::mint = quote_mint,
+        // associated_token::authority = user,
+        // associated_token::token_program = quote_token_program,
 
-        // mut,
-        // token::mint = quote_mint,
-        // token::authority = user,
-        // token::token_program = quote_token_program,
+        mut,
+        token::mint = quote_mint,
+        token::authority = user,
+        token::token_program = quote_token_program,
     )]
     pub user_quote_ata: Box<InterfaceAccount<'info, token_interface::TokenAccount>>,
     #[account(
-        init_if_needed,
-        payer = user,
-        associated_token::mint = quote_mint,
-        associated_token::authority = fee_receiver,
-        associated_token::token_program = quote_token_program,
+        // init_if_needed,
+        // payer = user,
+        // associated_token::mint = quote_mint,
+        // associated_token::authority = fee_receiver,
+        // associated_token::token_program = quote_token_program,
 
-        // mut,
-        // token::mint = quote_mint,
-        // token::authority = fee_receiver,
-        // token::token_program = quote_token_program,
+        mut,
+        token::mint = quote_mint,
+        token::authority = fee_receiver,
+        token::token_program = quote_token_program,
     )]
     pub fee_receiver_quote_ata: Box<InterfaceAccount<'info, token_interface::TokenAccount>>,
 
@@ -148,7 +148,7 @@ impl<'info> ACommon<'info> {
     }
 
     pub fn get_backing(&self) -> Result<u64> {
-        Ok(self.global_state.total_borrowed + self.token_vault_owner.lamports())
+        Ok(self.global_state.total_borrowed + self.quote_vault.amount)
     }
     pub fn sol_to_mushi(&self, sol_amount: u64) -> Result<u64>{
         Ok(
@@ -217,26 +217,28 @@ impl<'info> ACommon<'info> {
 }
 
 #[derive(Accounts)]
+#[instruction(referral_address: Pubkey)]
 pub struct ACommonExtReferral<'info> {
     pub common: ACommon<'info>, // Embed the existing ACommon struct
     
-    #[account(mut)]
+    #[account(
+        mut,
+        address = referral_address,
+    )]
     pub referral: SystemAccount<'info>,
 
     #[account(
         init_if_needed,
         payer = common.user,
-        associated_token::mint = quote_mint,
+        associated_token::mint = common.quote_mint,
         associated_token::authority = referral,
         associated_token::token_program = quote_token_program,
     )]
     pub referral_quote_ata: Box<InterfaceAccount<'info, token_interface::TokenAccount>>,
     
-    // Duplicate required accounts for constraints
-    pub quote_mint: Box<InterfaceAccount<'info, token_interface::Mint>>,
     pub quote_token_program: Interface<'info, token_interface::TokenInterface>,
-    pub system_program: Program<'info, System>,
     pub associated_token_program: Program<'info, AssociatedToken>,
+    pub system_program: Program<'info, System>,
 }
 
 #[derive(Accounts)]

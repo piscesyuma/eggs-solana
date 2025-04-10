@@ -66,6 +66,7 @@ pub fn borrow(ctx:Context<ACommonExtLoan>, number_of_days: u64, sol_amount:u64)-
     let quote_mint = ctx.accounts.common.quote_mint.to_account_info();
     let quote_token_program = ctx.accounts.common.quote_token_program.to_account_info();
     let decimals = ctx.accounts.common.quote_mint.decimals;
+    let token_vault_owner_bump = *ctx.bumps.get("token_vault_owner").unwrap();
     transfer_tokens_checked(
         from.clone(),
         ctx.accounts.common.user_quote_ata.to_account_info(),
@@ -74,7 +75,7 @@ pub fn borrow(ctx:Context<ACommonExtLoan>, number_of_days: u64, sol_amount:u64)-
         quote_token_program.clone(),
         new_user_borrow - sol_fee, 
         decimals,
-        None,
+        Some(&[&[VAULT_SEED, &[token_vault_owner_bump]]]),
     )?;
 
     transfer_tokens_checked(
@@ -85,7 +86,7 @@ pub fn borrow(ctx:Context<ACommonExtLoan>, number_of_days: u64, sol_amount:u64)-
         quote_token_program.clone(),
         fee_address_fee, 
         decimals,
-        None,
+        Some(&[&[VAULT_SEED, &[token_vault_owner_bump]]]),
     )?;
     
     // ctx.accounts.add_loans_by_date( new_user_borrow, user_mushi)?;
@@ -160,6 +161,10 @@ pub fn borrow_more(ctx:Context<ACommonExtSubLoan>, sol_amount:u64)->Result<()>{
     let quote_mint = ctx.accounts.common.quote_mint.to_account_info();
     let quote_token_program = ctx.accounts.common.quote_token_program.to_account_info();
     let decimals = ctx.accounts.common.quote_mint.decimals;
+
+    let token_vault_owner_bump = *ctx.bumps.get("token_vault_owner").unwrap();
+
+
     transfer_tokens_checked(
         from.clone(),
         ctx.accounts.common.user_quote_ata.to_account_info(),
@@ -168,7 +173,7 @@ pub fn borrow_more(ctx:Context<ACommonExtSubLoan>, sol_amount:u64)->Result<()>{
         quote_token_program.clone(),
         new_user_borrow - sol_fee, 
         decimals,
-        None,
+        Some(&[&[VAULT_SEED, &[token_vault_owner_bump]]]),
     )?;
 
     transfer_tokens_checked(
@@ -179,7 +184,7 @@ pub fn borrow_more(ctx:Context<ACommonExtSubLoan>, sol_amount:u64)->Result<()>{
         quote_token_program.clone(),
         fee_address_fee, 
         decimals,
-        None,
+        Some(&[&[VAULT_SEED, &[token_vault_owner_bump]]]),
     )?;
 
     Ok(())

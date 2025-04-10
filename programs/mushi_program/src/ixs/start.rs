@@ -1,6 +1,7 @@
 use anchor_lang::{
     prelude::*,
     solana_program::program::{invoke, invoke_signed},
+    solana_program::sysvar::rent::Rent,
 };
 use anchor_spl::{
     associated_token::AssociatedToken,
@@ -35,7 +36,8 @@ pub fn start(ctx: Context<AStart>, input: StartInput) -> Result<()> {
     //checks
     let team_mint_amount = input.sol_amount * MIN;
     require!(team_mint_amount >= LAMPORTS_PER_SOL, MushiProgramError::InvalidInput);
-
+    
+    
     let token_vault = ctx.accounts.token_vault.to_account_info();
     let mushi_token_program = ctx.accounts.base_token_program.to_account_info();
     // mint tokens
@@ -156,7 +158,6 @@ pub struct AStart<'info> {
     #[account(
         mut,
         token::mint = quote_mint,
-        token::authority = admin,
         token::token_program = quote_token_program,
     )]
     pub admin_quote_ata: Box<InterfaceAccount<'info, token_interface::TokenAccount>>,
@@ -170,7 +171,7 @@ pub struct AStart<'info> {
         mint::freeze_authority=main_state,
         mint::token_program = base_token_program,
     )]
-    pub base_token: Account<'info, Mint>,
+    pub base_token: Box<InterfaceAccount<'info, token_interface::Mint>>,
     ///CHECK:
     #[account(
         mut,
@@ -193,7 +194,7 @@ pub struct AStart<'info> {
         associated_token::authority = token_vault_owner,
         associated_token::token_program = base_token_program,
     )]
-    pub token_vault: Box<Account<'info, TokenAccount>>,
+    pub token_vault: Box<InterfaceAccount<'info, token_interface::TokenAccount>>,
 
     #[account(
         init,
@@ -202,10 +203,25 @@ pub struct AStart<'info> {
         associated_token::authority = token_vault_owner,
         associated_token::token_program = quote_token_program,
     )]
-    pub quote_vault: Box<Account<'info, TokenAccount>>,
+    pub quote_vault: Box<InterfaceAccount<'info, token_interface::TokenAccount>>,
+    
+    #[account(
+        mut,
+        address=main_state.fee_receiver,
+    )]
+    pub fee_receiver:SystemAccount<'info>,
+    
+    #[account(
+        init,
+        payer = admin,
+        associated_token::mint = quote_mint,
+        associated_token::authority = fee_receiver,
+        associated_token::token_program = quote_token_program,
+    )]
+    pub fee_receiver_quote_ata: Box<InterfaceAccount<'info, token_interface::TokenAccount>>,
 
     ///CHECK:
-    pub sysvar_rent: AccountInfo<'info>,
+    pub sysvar_rent: Sysvar<'info, Rent>,
     ///CHECK:
     pub mpl_program: AccountInfo<'info>,
     pub associated_token_program: Program<'info, AssociatedToken>,

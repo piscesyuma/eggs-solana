@@ -3,6 +3,9 @@ import { web3 } from "@coral-xyz/anchor";
 import { Program } from "@coral-xyz/anchor";
 import { MushiProgram } from "../target/types/mushi_program";
 import { MainStateInfo, GlobalStateInfo, sleep, MushiProgramRpc, getCurrentDateString } from "./mushiProgramRpc";
+import { getAssociatedTokenAddressSync, createAssociatedTokenAccount, TOKEN_2022_PROGRAM_ID } from "@solana/spl-token";
+import { safeAirdrop } from "./utils";
+import { createAssociatedTokenAccountInstruction } from "@solana/spl-token";
 
 const log = console.log;
 describe("mushi_program_buy_with_referral", () => {
@@ -22,8 +25,9 @@ describe("mushi_program_buy_with_referral", () => {
     programId,
   });
   const user = provider.publicKey;
-  const referralPubkey = new web3.PublicKey("HxEx3porEpbGa3PvmocLqooc6VPAAULkYxcr7vSm2hAn");
-
+  // const referralPubkey = new web3.PublicKey("HxEx3porEpbGa3PvmocLqooc6VPAAULkYxcr7vSm2hAn");
+  const referral = anchor.web3.Keypair.generate();
+  const referralPubkey = referral.publicKey;
   // Parameters for the buy operation
   const solAmount = 1; // Amount of SOL to buy tokens with
 
@@ -48,10 +52,48 @@ describe("mushi_program_buy_with_referral", () => {
   });
 
   it("Buy tokens with SOL", async () => {
-    if (!globalInfo) throw "Global state info is not available";
+    if (!globalInfo || !mainStateInfo) throw "Global state info is not available";
+    
+    // First, airdrop some SOL to referral
+    await safeAirdrop(referralPubkey, connection);
+    await sleep(5000);
+    
+    // Get quote token address
+    const quoteToken = mainStateInfo.quoteToken;
+    
+    // Create referral quote ATA explicitly
+    const referralQuoteAta = getAssociatedTokenAddressSync(
+      quoteToken,
+      referralPubkey,
+      true,
+      TOKEN_2022_PROGRAM_ID
+    );
+    
+    // Check if the ATA already exists
+    const ataInfo = await connection.getAccountInfo(referralQuoteAta);
+    
+    // If it doesn't exist, create it
+    if (!ataInfo) {
+      log("Creating referral quote ATA...");
+      
+      // Create a transaction to create the associated token account
+      const ix = createAssociatedTokenAccountInstruction(
+        provider.publicKey,
+        referralQuoteAta,
+        referralPubkey,
+        quoteToken,
+        TOKEN_2022_PROGRAM_ID
+      );
+      
+      const transaction = new web3.Transaction().add(ix);
+      const signature = await provider.sendAndConfirm(transaction);
+      
+      log("Created referral quote ATA:", signature);
+      await sleep(5000);
+    }
 
     // Perform the buy operation with debug=true to show date strings
-    const buyRes = await connectivity.buy_with_referral(solAmount, referralPubkey);
+    const buyRes = await connectivity.buy_with_referral(solAmount, referral);
     if (!buyRes.isPass) throw "Failed to buy tokens";
     
     log({ buyRes: buyRes.info });

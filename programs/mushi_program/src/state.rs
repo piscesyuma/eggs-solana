@@ -53,7 +53,7 @@ pub struct GlobalStats {
     pub total_collateral: u64,
     pub token_supply: u64,
     pub last_price: u64,
-    pub token: Pubkey,
+    pub base_token: Pubkey,
 }
 
 impl GlobalStats {

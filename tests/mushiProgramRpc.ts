@@ -4,6 +4,7 @@ import { AnchorProvider, Wallet } from "@coral-xyz/anchor/dist/cjs/provider";
 import {
   ASSOCIATED_TOKEN_PROGRAM_ID,
   getAssociatedTokenAddressSync,
+  TOKEN_2022_PROGRAM_ID,
   TOKEN_PROGRAM_ID,
 } from "@solana/spl-token";
 
@@ -28,6 +29,9 @@ const mplProgram = new web3.PublicKey(
 const systemProgram = web3.SystemProgram.programId;
 const sysvarRent = web3.SYSVAR_RENT_PUBKEY;
 const tokenProgram = TOKEN_PROGRAM_ID;
+const quoteTokenProgram = TOKEN_2022_PROGRAM_ID;
+
+const quoteTokenMint = new web3.PublicKey("4WhHyNda5YdjV4HXCVM9iSGrZkCegGMhkkjyXnAL51G5");
 
 export async function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -38,11 +42,12 @@ export type MainStateInfo = {
   sellFee: number;
   buyFee: number;
   buyFeeLeverage: number;
+  quoteToken: web3.PublicKey;
 };
 export type GlobalStateInfo = {
   started: boolean;
   tokenSupply: number;
-  token: web3.PublicKey;
+  baseToken: web3.PublicKey;
   lastLiquidationDate: number;
   totalBorrowed: number;
   totalCollateral: number;
@@ -221,7 +226,7 @@ export class MushiProgramRpc {
 
   async getMainStateInfo(): Promise<MainStateInfo | null> {
     try {
-      const { admin, feeReceiver, sellFee, buyFee, buyFeeLeverage } =
+      const { admin, feeReceiver, sellFee, buyFee, buyFeeLeverage, quoteToken } =
         await this.program.account.mainState.fetch(this.mainState);
       return {
         admin,
@@ -229,20 +234,20 @@ export class MushiProgramRpc {
         buyFee: Number(buyFee.toString()) / ONE_BASIS_POINTS,
         buyFeeLeverage: Number(buyFeeLeverage.toString()) / ONE_BASIS_POINTS,
         feeReceiver,
+        quoteToken,
       };
     } catch (getMainStateInfoError) {
-      log({ getMainStateInfoError });
       return null;
     }
   }
 
   async getGlobalInfo(): Promise<GlobalStateInfo | null> {
     try {
-      const { tokenSupply, token, started, lastLiquidationDate, totalBorrowed, totalCollateral, lastPrice } =
+      const { tokenSupply, baseToken, started, lastLiquidationDate, totalBorrowed, totalCollateral, lastPrice } =
         await this.program.account.globalStats.fetch(this.globalState);
       return {
         tokenSupply: Number(tokenSupply.toString()),
-        token,
+        baseToken,
         started,
         lastLiquidationDate: Number(lastLiquidationDate.toString()),
         totalBorrowed: Number(totalBorrowed.toString()),
@@ -280,6 +285,7 @@ export class MushiProgramRpc {
     sellFee: number;
     buyFee: number;
     buyFeeLeverage: number;
+    quoteToken: web3.PublicKey;
   }): Promise<SendTxResult> {
     try {
       log(Math.trunc(input.sellFee * ONE_BASIS_POINTS));
@@ -287,6 +293,7 @@ export class MushiProgramRpc {
       const ix = await this.program.methods
         .initMainState({
           feeReceiver: input.feeReceiver,
+          quoteToken: input.feeReceiver,
           sellFee: new BN(Math.trunc(input.sellFee * ONE_BASIS_POINTS)),
           buyFee: new BN(Math.trunc(input.buyFee * ONE_BASIS_POINTS)),
           buyFeeLeverage: new BN(Math.trunc(input.buyFeeLeverage * ONE_BASIS_POINTS)),
@@ -332,6 +339,17 @@ export class MushiProgramRpc {
         mplProgram
       )[0];
 
+      const quoteTokenVault = getAssociatedTokenAddressSync(
+        quoteTokenMint,
+        this.vaultOwner,
+        true
+      );
+      const adminQuoteAta = getAssociatedTokenAddressSync(
+        quoteTokenMint,
+        admin,
+        true
+      );
+      
       const ix = await this.program.methods
         .start({
           solAmount: new BN(
@@ -351,8 +369,12 @@ export class MushiProgramRpc {
           mplProgram,
           systemProgram,
           sysvarRent,
-          tokenProgram,
-          token,
+          baseTokenProgram: tokenProgram,
+          quoteTokenProgram: quoteTokenProgram,
+          baseToken: token,
+          quoteMint: quoteTokenMint,
+          quoteVault: quoteTokenVault,
+          adminQuoteAta: adminQuoteAta,
           tokenMetadataAccount,
         })
         .instruction();

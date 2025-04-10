@@ -5,6 +5,7 @@ use anchor_spl::token_interface;
 #[derive(AnchorSerialize, AnchorDeserialize, Debug, Clone)]
 pub struct InitializeInput {
     pub fee_receiver: Pubkey,
+    pub quote_token: Pubkey,
     pub sell_fee: u64,
     pub buy_fee: u64,
     pub buy_fee_leverage: u64,
@@ -15,10 +16,10 @@ pub fn init_main_state(ctx: Context<AInitializeState>, input: InitializeInput) -
     let main_state = &mut ctx.accounts.main_state;
     main_state.admin = ctx.accounts.admin.key();
     main_state.fee_receiver = input.fee_receiver.key();
+    main_state.quote_token = input.quote_token.key();
     main_state.sell_fee = input.sell_fee;
     main_state.buy_fee = input.buy_fee;
     main_state.buy_fee_leverage = input.buy_fee_leverage;
-    main_state.quote_token = ctx.accounts.quote_token.key();
 
     // global state
     let global_state = &mut ctx.accounts.global_state;
@@ -47,6 +48,5 @@ pub struct AInitializeState<'info> {
         space =  8 + MainState::MAX_SIZE,
     )]
     pub main_state: Box<Account<'info, MainState>>,
-    pub quote_token: InterfaceAccount<'info, token_interface::Mint>,
     pub system_program: Program<'info, System>,
 }

@@ -4,7 +4,7 @@ use anchor_lang::{
 };
 use anchor_spl::{
     associated_token::AssociatedToken,
-    token::{self, Mint, TokenAccount},
+    token::{self, Mint, TokenAccount}, token_interface,
 };
 use mpl_token_metadata::{
     instructions::{CreateMetadataAccountV3, CreateMetadataAccountV3InstructionArgs},
@@ -15,7 +15,7 @@ use crate::{
     constants::{LAMPORTS_PER_SOL, MIN, SECONDS_IN_A_DAY, VAULT_SEED},
     error::MushiProgramError,
     program::MushiProgram,
-    utils::{burn_tokens, mint_to_tokens_by_main_state, transfer_sol},
+    utils::{burn_tokens, mint_to_tokens_by_main_state, transfer_tokens_checked},
     MainState, GlobalStats,
 };
 
@@ -30,20 +30,20 @@ pub struct StartInput {
 pub fn start(ctx: Context<AStart>, input: StartInput) -> Result<()> {
     let main_state = &mut ctx.accounts.main_state;
     let global_state = &mut ctx.accounts.global_state;
-    let mint = ctx.accounts.token.to_account_info();
+    let mushi_mint = ctx.accounts.base_token.to_account_info();
     let admin = ctx.accounts.admin.to_account_info();
     //checks
     let team_mint_amount = input.sol_amount * MIN;
     require!(team_mint_amount >= LAMPORTS_PER_SOL, MushiProgramError::InvalidInput);
 
     let token_vault = ctx.accounts.token_vault.to_account_info();
-    let token_program = ctx.accounts.token_program.to_account_info();
+    let mushi_token_program = ctx.accounts.base_token_program.to_account_info();
     // mint tokens
     mint_to_tokens_by_main_state(
-        mint.to_account_info(),
+        mushi_mint.to_account_info(),
         main_state.to_account_info(),
         token_vault.to_account_info(),
-        token_program.to_account_info(),
+        mushi_token_program.to_account_info(),
         team_mint_amount,
         *ctx.bumps.get("main_state").unwrap(),
     )?;
@@ -51,32 +51,40 @@ pub fn start(ctx: Context<AStart>, input: StartInput) -> Result<()> {
     // burn tokens
     burn_tokens(
         token_vault.to_account_info(),
-        mint.to_account_info(),
+        mushi_mint.to_account_info(),
         ctx.accounts.token_vault_owner.to_account_info(),
-        token_program.to_account_info(),
+        mushi_token_program.to_account_info(),
         1 * LAMPORTS_PER_SOL,
         Some(&[&[VAULT_SEED, &[*ctx.bumps.get("token_vault_owner").unwrap()]]]),
     )?;
     global_state.token_supply = team_mint_amount;
     global_state.started = true;
-    global_state.token = mint.key();
+    global_state.base_token = mushi_mint.key();
     global_state.total_borrowed = 0;
     global_state.total_collateral = 0;
     global_state.last_price = 0;
     
-    msg!(&mint.key().to_string());
-    // transfer sol to vault owner
-    let system_program = ctx.accounts.system_program.to_account_info();
-    transfer_sol(
+    msg!(&mushi_mint.key().to_string());
+
+    let quote_mint = ctx.accounts.quote_mint.to_account_info();
+    let quote_token_program = ctx.accounts.quote_token_program.to_account_info();
+    let decimals = ctx.accounts.quote_mint.decimals;
+
+    transfer_tokens_checked(
+        ctx.accounts.admin_quote_ata.to_account_info(),
+        ctx.accounts.quote_vault.to_account_info(),
         ctx.accounts.admin.to_account_info(),
-        ctx.accounts.token_vault_owner.to_account_info(), 
-        system_program.to_account_info(), 
+        quote_mint.clone(),
+        quote_token_program.clone(),
         input.sol_amount, 
-        None)?;
+        decimals,
+        None,
+    )?;
+    
     // set token metadata
     let set_metadata_ix = CreateMetadataAccountV3 {
         metadata: ctx.accounts.token_metadata_account.key(),
-        mint: mint.key(),
+        mint: mushi_mint.key(),
         mint_authority: main_state.key(),
         payer: ctx.accounts.admin.key(),
         rent: Some(ctx.accounts.sysvar_rent.key()),
@@ -105,10 +113,10 @@ pub fn start(ctx: Context<AStart>, input: StartInput) -> Result<()> {
         &[
             main_state.to_account_info(),
             admin.clone(),
-            mint.clone(),
+            mushi_mint.clone(),
             ctx.accounts.token_metadata_account.to_account_info(),
             ctx.accounts.mpl_program.to_account_info(),
-            ctx.accounts.token_program.to_account_info(),
+            ctx.accounts.base_token_program.to_account_info(),
             ctx.accounts.sysvar_rent.to_account_info(),
             ctx.accounts.system_program.to_account_info(),
         ],
@@ -140,18 +148,33 @@ pub struct AStart<'info> {
     )]
     pub global_state: Account<'info, GlobalStats>,
     #[account(
+        mut,
+        address = main_state.quote_token,
+    )]
+    pub quote_mint: Box<InterfaceAccount<'info, token_interface::Mint>>,
+
+    #[account(
+        mut,
+        token::mint = quote_mint,
+        token::authority = admin,
+        token::token_program = quote_token_program,
+    )]
+    pub admin_quote_ata: Box<InterfaceAccount<'info, token_interface::TokenAccount>>,
+
+    #[account(
         init,
         payer = admin,
         signer,
-        mint::decimals = 6,
+        mint::decimals = 9,
         mint::authority = main_state,
         mint::freeze_authority=main_state,
+        mint::token_program = base_token_program,
     )]
-    pub token: Account<'info, Mint>,
+    pub base_token: Account<'info, Mint>,
     ///CHECK:
     #[account(
         mut,
-        seeds = [b"metadata", mpl_program.key.as_ref(), token.key().as_ref()],
+        seeds = [b"metadata", mpl_program.key.as_ref(), base_token.key().as_ref()],
         seeds::program = mpl_program,
         bump,
     )]
@@ -166,15 +189,27 @@ pub struct AStart<'info> {
     #[account(
         init,
         payer = admin,
-        associated_token::mint = token,
+        associated_token::mint = base_token,
         associated_token::authority = token_vault_owner,
+        associated_token::token_program = base_token_program,
     )]
     pub token_vault: Box<Account<'info, TokenAccount>>,
+
+    #[account(
+        init,
+        payer = admin,
+        associated_token::mint = quote_mint,
+        associated_token::authority = token_vault_owner,
+        associated_token::token_program = quote_token_program,
+    )]
+    pub quote_vault: Box<Account<'info, TokenAccount>>,
+
     ///CHECK:
     pub sysvar_rent: AccountInfo<'info>,
     ///CHECK:
     pub mpl_program: AccountInfo<'info>,
     pub associated_token_program: Program<'info, AssociatedToken>,
-    pub token_program: Program<'info, token::Token>,
+    pub base_token_program: Interface<'info, token_interface::TokenInterface>,
+    pub quote_token_program: Interface<'info, token_interface::TokenInterface>,
     pub system_program: Program<'info, System>,
 }

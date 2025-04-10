@@ -61,7 +61,7 @@ pub struct ACommon<'info> {
     pub fee_receiver:SystemAccount<'info>,
     #[account(
         mut,
-        address = global_state.token,
+        address = global_state.base_token,
     )]
     pub token: Box<InterfaceAccount<'info, token_interface::Mint>>,
     #[account(
@@ -104,29 +104,29 @@ pub struct ACommon<'info> {
     )]
     pub quote_vault: Box<InterfaceAccount<'info, token_interface::TokenAccount>>,
     #[account(
-        // init_if_needed,
-        // payer = user,
-        // associated_token::mint = quote_mint,
-        // associated_token::authority = user,
-        // associated_token::token_program = quote_token_program,
+        init_if_needed,
+        payer = user,
+        associated_token::mint = quote_mint,
+        associated_token::authority = user,
+        associated_token::token_program = quote_token_program,
 
-        mut,
-        token::mint = quote_mint,
-        token::authority = user,
-        token::token_program = quote_token_program,
+        // mut,
+        // token::mint = quote_mint,
+        // token::authority = user,
+        // token::token_program = quote_token_program,
     )]
     pub user_quote_ata: Box<InterfaceAccount<'info, token_interface::TokenAccount>>,
     #[account(
-        // init_if_needed,
-        // payer = user,
-        // associated_token::mint = quote_mint,
-        // associated_token::authority = fee_receiver,
-        // associated_token::token_program = quote_token_program,
+        init_if_needed,
+        payer = user,
+        associated_token::mint = quote_mint,
+        associated_token::authority = fee_receiver,
+        associated_token::token_program = quote_token_program,
 
-        mut,
-        token::mint = quote_mint,
-        token::authority = fee_receiver,
-        token::token_program = quote_token_program,
+        // mut,
+        // token::mint = quote_mint,
+        // token::authority = fee_receiver,
+        // token::token_program = quote_token_program,
     )]
     pub fee_receiver_quote_ata: Box<InterfaceAccount<'info, token_interface::TokenAccount>>,
 
@@ -221,7 +221,22 @@ pub struct ACommonExtReferral<'info> {
     pub common: ACommon<'info>, // Embed the existing ACommon struct
     
     #[account(mut)]
-    pub referral: Option<UncheckedAccount<'info>>,
+    pub referral: SystemAccount<'info>,
+
+    #[account(
+        init_if_needed,
+        payer = common.user,
+        associated_token::mint = quote_mint,
+        associated_token::authority = referral,
+        associated_token::token_program = quote_token_program,
+    )]
+    pub referral_quote_ata: Box<InterfaceAccount<'info, token_interface::TokenAccount>>,
+    
+    // Duplicate required accounts for constraints
+    pub quote_mint: Box<InterfaceAccount<'info, token_interface::Mint>>,
+    pub quote_token_program: Interface<'info, token_interface::TokenInterface>,
+    pub system_program: Program<'info, System>,
+    pub associated_token_program: Program<'info, AssociatedToken>,
 }
 
 #[derive(Accounts)]

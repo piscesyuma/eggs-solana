@@ -125,32 +125,32 @@ pub fn transfer_tokens_checked<'info>(
     Ok(())
 }
 
-pub fn transfer_sol<'info>(
-    sender: AccountInfo<'info>,
-    receiver: AccountInfo<'info>,
-    system_program: AccountInfo<'info>,
-    amount: u64,
-    signer_seeds: Option<&[&[&[u8]]]>,
-) -> Result<()> {
-    let ix = transfer(sender.key, receiver.key, amount);
-    if let Some(signer_seeds) = signer_seeds {
-        invoke_signed(&ix, &[sender, receiver, system_program], signer_seeds)?;
-    } else {
-        invoke(&ix, &[sender, receiver, system_program])?;
-    }
-    Ok(())
-}
+// pub fn transfer_sol<'info>(
+//     sender: AccountInfo<'info>,
+//     receiver: AccountInfo<'info>,
+//     system_program: AccountInfo<'info>,
+//     amount: u64,
+//     signer_seeds: Option<&[&[&[u8]]]>,
+// ) -> Result<()> {
+//     let ix = transfer(sender.key, receiver.key, amount);
+//     if let Some(signer_seeds) = signer_seeds {
+//         invoke_signed(&ix, &[sender, receiver, system_program], signer_seeds)?;
+//     } else {
+//         invoke(&ix, &[sender, receiver, system_program])?;
+//     }
+//     Ok(())
+// }
 
-pub fn trasnfer_sol_to_pubkey<'info>(
-    sender: AccountInfo<'info>,
-    receiver: &Pubkey,
-    system_program: AccountInfo<'info>,
-    amount: u64,
-) -> Result<()> {
-    let ix = transfer(sender.key, receiver, amount);
-    invoke(&ix, &[sender, system_program])?;
-    Ok(())
-}
+// pub fn trasnfer_sol_to_pubkey<'info>(
+//     sender: AccountInfo<'info>,
+//     receiver: &Pubkey,
+//     system_program: AccountInfo<'info>,
+//     amount: u64,
+// ) -> Result<()> {
+//     let ix = transfer(sender.key, receiver, amount);
+//     invoke(&ix, &[sender, system_program])?;
+//     Ok(())
+// }
 
 pub fn liquidate<'info>(
     last_liquidation_date_state: &mut DailyStats,

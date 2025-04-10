@@ -27,8 +27,8 @@ describe("sonic_program", () => {
   const tokenUri = "https://mushi.xyz";
 
   it("start", async () => {
-    const info = await connectivity.getMainStateInfo();
-    if (info) {
+    // const info = await connectivity.getMainStateInfo();
+    // if (info) {
       const startRes = await connectivity.start({
         solAmount: 100,
         tokenName,
@@ -41,6 +41,6 @@ describe("sonic_program", () => {
       const _info = await connectivity.getGlobalInfo();
       if (!_info) throw "failed to get mainstate info";
       console.log({ _info });
-    }
+    // }
   });
 });

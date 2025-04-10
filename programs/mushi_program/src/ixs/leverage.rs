@@ -5,7 +5,7 @@ use crate::{
     constants::{
         FEES_BUY, FEES_SELL, FEE_BASE_1000, MIN, SECONDS_IN_A_DAY, VAULT_SEED
     }, context::ACommonExtLoan, error::MushiProgramError, utils::{
-        add_loans_by_date, burn_tokens, get_interest_fee, get_midnight_timestamp, liquidate, mint_to_tokens_by_main_state, transfer_sol, transfer_tokens
+        add_loans_by_date, burn_tokens, get_interest_fee, get_midnight_timestamp, liquidate, mint_to_tokens_by_main_state, transfer_tokens, transfer_tokens_checked
     }
 };
 use crate::context::common::ACommon;
@@ -54,9 +54,6 @@ pub fn leverage(ctx:Context<ACommonExtLoan>, number_of_days: u64, sol_amount:u64
     let over_collateralization_amount = user_sol/100;
     let sub_value = fee_address_amount.checked_add(over_collateralization_amount).unwrap();
     let total_fee = sol_fee.checked_add(over_collateralization_amount).unwrap();
-    let mut fee_overage = 0;
-
-    let signer_seeds:&[&[&[u8]]] = &[&[VAULT_SEED, &[bump]]];
 
     // Calculate user_mushi before borrowing ctx.accounts mutably again
     let user_mushi = ctx.accounts.common.sol_to_mushi_lev(user_sol, sub_value)?;
@@ -73,20 +70,30 @@ pub fn leverage(ctx:Context<ACommonExtLoan>, number_of_days: u64, sol_amount:u64
 
     require!(fee_address_amount > MIN, MushiProgramError::InvalidFeeAmount);
     
-    transfer_sol(
-        ctx.accounts.common.user.to_account_info(), 
-        ctx.accounts.common.token_vault_owner.to_account_info(), 
-        ctx.accounts.common.system_program.to_account_info(), 
-        total_fee, 
-        None)?;
+    let quote_mint = ctx.accounts.common.quote_mint.to_account_info();
+    let quote_token_program = ctx.accounts.common.quote_token_program.to_account_info();
+    let decimals = ctx.accounts.common.quote_mint.decimals;
 
-    // Transfer SOL
-    transfer_sol(
+    transfer_tokens_checked(
+        ctx.accounts.common.user_quote_ata.to_account_info(),
+        ctx.accounts.common.quote_vault.to_account_info(),
+        ctx.accounts.common.user.to_account_info(),
+        quote_mint.clone(),
+        quote_token_program.clone(),
+        total_fee, 
+        decimals,
+        None,
+    )?;
+
+    transfer_tokens_checked(
+        ctx.accounts.common.quote_vault.to_account_info(),
+        ctx.accounts.common.fee_receiver_quote_ata.to_account_info(),
         ctx.accounts.common.token_vault_owner.to_account_info(),
-        ctx.accounts.common.fee_receiver.to_account_info(),
-        ctx.accounts.common.system_program.to_account_info(),
-        fee_address_amount,
-        Some(signer_seeds)
+        quote_mint.clone(),
+        quote_token_program.clone(),
+        fee_address_amount, 
+        decimals,
+        None,
     )?;
     
     // Update loans by date

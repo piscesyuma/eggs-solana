@@ -8,7 +8,7 @@ use crate::{
     context::ACommonExtReferral,
     error::MushiProgramError,
     utils::{
-        burn_tokens, liquidate, mint_to_tokens_by_main_state, transfer_sol, trasnfer_sol_to_pubkey,
+        burn_tokens, liquidate, mint_to_tokens_by_main_state,
     },
 };
 
@@ -111,12 +111,7 @@ pub fn buy_with_referral(
     require!(is_started, MushiProgramError::NotStarted);
 
     require!(
-        ctx.accounts.referral.is_some(),
-        MushiProgramError::ReferralNotFound
-    );
-    let referral_account = ctx.accounts.referral.as_ref().unwrap();
-    require!(
-        referral_account.key() == input.referral_pubkey,
+        ctx.accounts.referral.key() == input.referral_pubkey,
         MushiProgramError::InvalidReferralAccount
     );
 
@@ -169,18 +164,18 @@ pub fn buy_with_referral(
             decimals,
             None,
         )?;
-        //TODO:
-        // transfer_tokens_checked(
-        //     from.clone(),
-        //     ctx.accounts.common.referral_quote_ata.to_account_info(),
-        //     authority.clone(),
-        //     mint.clone(),
-        //     token_program.clone(),
-        //     fee_referral,
-        //     decimals,
-        //     None,
-        // )?;
-        // paying quotes to the user
+        
+        transfer_tokens_checked(
+            from.clone(),
+            ctx.accounts.referral_quote_ata.to_account_info(),
+            authority.clone(),
+            mint.clone(),
+            token_program.clone(),
+            fee_referral,
+            decimals,
+            None,
+        )?;
+
         transfer_tokens_checked(
             from.clone(),
             ctx.accounts.common.user_quote_ata.to_account_info(),

@@ -5,7 +5,7 @@ seeds = false
 skip-lint = false
 
 [programs.localnet]
-mushi_program = "9eykXRhjtB3PXZSd4ZwYVyajyACC5D3iGgTBvjYNbFpK"
+mushi_program = "HF5x1bCgynzEnBL7ATMFYPNFjBaqfxgMASyUJL2ud6Xi"
 
 [registry]
 url = "https://api.apr.dev"

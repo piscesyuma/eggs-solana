@@ -14,7 +14,7 @@ mod constants;
 mod error;
 mod utils;
 
-declare_id!("9eykXRhjtB3PXZSd4ZwYVyajyACC5D3iGgTBvjYNbFpK");
+declare_id!("HF5x1bCgynzEnBL7ATMFYPNFjBaqfxgMASyUJL2ud6Xi");
 
 #[program]
 pub mod mushi_program {

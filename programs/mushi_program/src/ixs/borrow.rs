@@ -5,7 +5,7 @@ use crate::{
     constants::{
         FEES_BUY, FEES_SELL, FEE_BASE_1000, MIN, SECONDS_IN_A_DAY, VAULT_SEED
     }, context::{ACommonExtLoan, ACommonExtSubLoan}, error::MushiProgramError, utils::{
-        add_loans_by_date, burn_tokens, get_interest_fee, get_midnight_timestamp, liquidate, mint_to_tokens_by_main_state, transfer_sol, transfer_tokens
+        add_loans_by_date, burn_tokens, get_interest_fee, get_midnight_timestamp, liquidate, mint_to_tokens_by_main_state, transfer_tokens, transfer_tokens_checked
     }
 };
 use crate::context::common::ACommon;
@@ -61,21 +61,33 @@ pub fn borrow(ctx:Context<ACommonExtLoan>, number_of_days: u64, sol_amount:u64)-
     
     require!(fee_address_fee > MIN, MushiProgramError::InvalidFeeAmount);
 
-    let signer_seeds:&[&[&[u8]]] = &[&[VAULT_SEED, &[*ctx.bumps.get("token_vault_owner").unwrap()]]];
-
-    transfer_sol(
-        ctx.accounts.common.token_vault_owner.to_account_info(), 
-        ctx.accounts.user.to_account_info(), 
-        ctx.accounts.system_program.to_account_info(), 
+    let from = ctx.accounts.common.quote_vault.to_account_info();
+    let authority = ctx.accounts.common.token_vault_owner.to_account_info();
+    let quote_mint = ctx.accounts.common.quote_mint.to_account_info();
+    let quote_token_program = ctx.accounts.common.quote_token_program.to_account_info();
+    let decimals = ctx.accounts.common.quote_mint.decimals;
+    transfer_tokens_checked(
+        from.clone(),
+        ctx.accounts.common.user_quote_ata.to_account_info(),
+        authority.clone(),
+        quote_mint.clone(),
+        quote_token_program.clone(),
         new_user_borrow - sol_fee, 
-        Some(signer_seeds))?;
-    transfer_sol(
-    ctx.accounts.common.token_vault_owner.to_account_info(), 
-    ctx.accounts.common.fee_receiver.to_account_info(), 
-    ctx.accounts.common.system_program.to_account_info(), 
-    fee_address_fee, 
-    Some(signer_seeds))?;
+        decimals,
+        None,
+    )?;
 
+    transfer_tokens_checked(
+        from.clone(),
+        ctx.accounts.common.fee_receiver_quote_ata.to_account_info(),
+        authority.clone(),
+        quote_mint.clone(),
+        quote_token_program.clone(),
+        fee_address_fee, 
+        decimals,
+        None,
+    )?;
+    
     // ctx.accounts.add_loans_by_date( new_user_borrow, user_mushi)?;
     add_loans_by_date(&mut ctx.accounts.common.global_state, &mut ctx.accounts.daily_state_end_date, new_user_borrow, user_mushi)?;
 
@@ -143,20 +155,32 @@ pub fn borrow_more(ctx:Context<ACommonExtSubLoan>, sol_amount:u64)->Result<()>{
     
     require!(fee_address_fee > MIN, MushiProgramError::InvalidFeeAmount);
 
-    let signer_seeds:&[&[&[u8]]] = &[&[VAULT_SEED, &[*ctx.bumps.get("token_vault_owner").unwrap()]]];
-    transfer_sol(
-        ctx.accounts.common.token_vault_owner.to_account_info(), 
-        ctx.accounts.common.user.to_account_info(), 
-        ctx.accounts.common.system_program.to_account_info(), 
+    let from = ctx.accounts.common.user_quote_ata.to_account_info();
+    let authority = ctx.accounts.common.user.to_account_info();
+    let quote_mint = ctx.accounts.common.quote_mint.to_account_info();
+    let quote_token_program = ctx.accounts.common.quote_token_program.to_account_info();
+    let decimals = ctx.accounts.common.quote_mint.decimals;
+    transfer_tokens_checked(
+        from.clone(),
+        ctx.accounts.common.user_quote_ata.to_account_info(),
+        authority.clone(),
+        quote_mint.clone(),
+        quote_token_program.clone(),
         new_user_borrow - sol_fee, 
-        Some(signer_seeds))?;
-    transfer_sol(
-    ctx.accounts.common.token_vault_owner.to_account_info(), 
-    ctx.accounts.common.fee_receiver.to_account_info(), 
-    ctx.accounts.common.system_program.to_account_info(), 
-    fee_address_fee, 
-    Some(signer_seeds))?;
-    add_loans_by_date(&mut ctx.accounts.common.global_state, &mut ctx.accounts.daily_state_old_end_date, new_user_borrow, require_collateral_from_user)?;
-    ctx.accounts.common.safety_check()?;
+        decimals,
+        None,
+    )?;
+
+    transfer_tokens_checked(
+        from.clone(),
+        ctx.accounts.common.fee_receiver_quote_ata.to_account_info(),
+        authority.clone(),
+        quote_mint.clone(),
+        quote_token_program.clone(),
+        fee_address_fee, 
+        decimals,
+        None,
+    )?;
+
     Ok(())
 }

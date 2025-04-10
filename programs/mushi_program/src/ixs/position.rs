@@ -48,7 +48,7 @@ pub fn close_position(ctx:Context<ACommonExtSubLoan>, sol_amount: u64)->Result<(
     user_loan.collateral = 0;
     user_loan.end_date = 0;
     user_loan.number_of_days = 0;
-    ctx.accounts.common.safety_check()?;
+    ctx.accounts.common.safety_check(sol_amount, true)?;
     
     Ok(())
 }
@@ -80,6 +80,8 @@ pub fn flash_close_position(ctx:Context<ACommonExtSubLoan>)->Result<()>{
         collateral,
         Some(signer_seeds)
     )?;
+    ctx.accounts.common.global_state.token_supply = ctx.accounts.common.global_state.token_supply.checked_sub(collateral).unwrap();
+    
     let collateral_in_sonic_after_fee = collateral_in_sol.checked_mul(99).unwrap().checked_div(100).unwrap();
     let fee = collateral_in_sol / 100;
 
@@ -114,7 +116,7 @@ pub fn flash_close_position(ctx:Context<ACommonExtSubLoan>)->Result<()>{
         ctx.accounts.common.token_vault_owner.to_account_info(),
         quote_mint.clone(),
         quote_token_program.clone(),
-        to_user, 
+        fee_address_fee, 
         decimals,
         Some(signer_seeds),
     )?;
@@ -125,6 +127,6 @@ pub fn flash_close_position(ctx:Context<ACommonExtSubLoan>)->Result<()>{
     user_loan.collateral = 0;
     user_loan.end_date = 0;
     user_loan.number_of_days = 0;
-    ctx.accounts.common.safety_check()?;
+    ctx.accounts.common.safety_check(to_user + fee_address_fee, false)?;
     Ok(())
 }

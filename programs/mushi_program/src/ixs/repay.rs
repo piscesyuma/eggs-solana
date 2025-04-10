@@ -35,6 +35,6 @@ pub fn repay(ctx:Context<ACommonExtSubLoan>, sol_amount: u64)->Result<()>{
     let new_borrow = borrowed - sol_amount;
     let user_loan = &mut ctx.accounts.common.user_loan;
     user_loan.borrowed = new_borrow;
-    ctx.accounts.common.safety_check()?;
+    ctx.accounts.common.safety_check(sol_amount, true)?;
     Ok(())
 }

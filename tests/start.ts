@@ -45,7 +45,7 @@ describe("sonic_program", () => {
         : info.quoteToken;
         
       const startRes = await connectivity.start({
-        solAmount: 100,
+        solAmount: 1,
         tokenName,
         tokenSymbol,
         tokenUri,

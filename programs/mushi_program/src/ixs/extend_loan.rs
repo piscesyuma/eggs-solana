@@ -62,7 +62,7 @@ pub fn extend_loan(ctx:Context<ACommonExtExtendLoan>, number_of_days: u64 )->Res
 
     let current_timestamp = Clock::get()?.unix_timestamp;
     require!((new_end_date - current_timestamp) / SECONDS_IN_A_DAY < 366, MushiProgramError::InvalidNumberOfDays);
-    ctx.accounts.common.safety_check()?;
+    ctx.accounts.common.safety_check(loan_fee - fee_address_fee, true)?;
     
     Ok(())
 }

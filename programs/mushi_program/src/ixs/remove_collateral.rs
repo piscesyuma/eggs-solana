@@ -43,6 +43,6 @@ pub fn remove_collateral(ctx:Context<ACommonExtSubLoan>, amount: u64)->Result<()
         amount,
         Some(signer_seeds)
     )?;
-    ctx.accounts.common.safety_check()?;
+    ctx.accounts.common.safety_check(0, true)?;
     Ok(())
 }

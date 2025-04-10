@@ -147,25 +147,25 @@ impl<'info> ACommon<'info> {
         Ok(get_date_string_from_timestamp(self.global_state.last_liquidation_date))
     }
 
-    pub fn get_backing(&self) -> Result<u64> {
-        Ok(self.global_state.total_borrowed + self.quote_vault.amount)
+    pub fn get_backing(&self, sol_amount: u64) -> Result<u64> {
+        Ok(self.global_state.total_borrowed + self.quote_vault.amount + sol_amount)
     }
     pub fn sol_to_mushi(&self, sol_amount: u64) -> Result<u64>{
         Ok(
             ((sol_amount as u128).checked_mul(self.global_state.token_supply as u128).unwrap())
             .checked_div(
-                self.get_backing()?.checked_sub(sol_amount).unwrap() as u128
+                self.get_backing(sol_amount)?.checked_sub(sol_amount).unwrap() as u128
             ).unwrap() as u64
         )
     }
     pub fn mushi_to_sol(&self, mushi_amount: u64) -> Result<u64>{
         Ok(
-            ((mushi_amount as u128).checked_mul(self.get_backing()? as u128).unwrap())
+            ((mushi_amount as u128).checked_mul(self.get_backing(0)? as u128).unwrap())
             .checked_div(self.global_state.token_supply as u128).unwrap() as u64
         )
     }
-    pub fn sol_to_mushi_lev(&self, sol_amount: u64, fee: u64) -> Result<u64>{
-        let backing = self.get_backing()? - fee;
+    pub fn sol_to_mushi_lev(&self, sol_amount: u64, fee: u64, total_sol_amount: u64) -> Result<u64>{
+        let backing = self.get_backing(total_sol_amount)? - fee;
         Ok(
             ((sol_amount as u128).checked_mul(self.global_state.token_supply as u128).unwrap())
             .checked_add((backing - 1) as u128).unwrap()
@@ -175,18 +175,24 @@ impl<'info> ACommon<'info> {
     pub fn sol_to_mushi_no_trade_ceil(&self, sol_amount: u64) -> Result<u64>{
         Ok(
             ((sol_amount as u128).checked_mul(self.global_state.token_supply as u128).unwrap())
-            .checked_add(self.get_backing()? as u128 - 1).unwrap()
-            .checked_div(self.get_backing()? as u128).unwrap() as u64
+            .checked_add(self.get_backing(0)? as u128 - 1).unwrap()
+            .checked_div(self.get_backing(0)? as u128).unwrap() as u64
         )
     }
     pub fn sol_to_mushi_no_trade(&self, sol_amount: u64) -> Result<u64>{
         Ok(
             ((sol_amount as u128).checked_mul(self.global_state.token_supply as u128).unwrap())
-            .checked_div(self.get_backing()? as u128).unwrap() as u64
+            .checked_div(self.get_backing(0)? as u128).unwrap() as u64
         )
     }
-    pub fn safety_check(&mut self) -> Result<()> {
-        let backing = self.get_backing()?;
+    pub fn safety_check(&mut self, sol_amount: u64, plus:bool) -> Result<()> {
+        let mut backing = self.get_backing(0)?;
+        if plus {
+            backing = backing.checked_add(sol_amount).unwrap();
+        } else {
+            backing = backing.checked_sub(sol_amount).unwrap();
+        }
+        
         let new_price: u64 = (backing as u128).checked_mul(LAMPORTS_PER_SOL as u128).unwrap()
         .checked_div(self.global_state.token_supply as u128).unwrap() as u64;
         let _total_collateral = self.token_vault.amount;

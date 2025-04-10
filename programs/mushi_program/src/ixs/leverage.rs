@@ -56,7 +56,7 @@ pub fn leverage(ctx:Context<ACommonExtLoan>, number_of_days: u64, sol_amount:u64
     let total_fee = sol_fee.checked_add(over_collateralization_amount).unwrap();
 
     // Calculate user_mushi before borrowing ctx.accounts mutably again
-    let user_mushi = ctx.accounts.common.sol_to_mushi_lev(user_sol, sub_value)?;
+    let user_mushi = ctx.accounts.common.sol_to_mushi_lev(user_sol, sub_value, sol_amount)?;
     
     // Mint tokens
     mint_to_tokens_by_main_state(
@@ -109,7 +109,7 @@ pub fn leverage(ctx:Context<ACommonExtLoan>, number_of_days: u64, sol_amount:u64
     user_loan.end_date = end_date;
     user_loan.number_of_days = number_of_days;
     
-    ctx.accounts.common.safety_check()?;
+    ctx.accounts.common.safety_check(total_fee - fee_address_amount, true)?;
     
     Ok(())
 }

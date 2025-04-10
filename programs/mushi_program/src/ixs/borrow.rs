@@ -92,7 +92,7 @@ pub fn borrow(ctx:Context<ACommonExtLoan>, number_of_days: u64, sol_amount:u64)-
     // ctx.accounts.add_loans_by_date( new_user_borrow, user_mushi)?;
     add_loans_by_date(&mut ctx.accounts.common.global_state, &mut ctx.accounts.daily_state_end_date, new_user_borrow, user_mushi)?;
 
-    ctx.accounts.common.safety_check()?;
+    ctx.accounts.common.safety_check(new_user_borrow - sol_fee + fee_address_fee, false)?;
     Ok(())
 }
 
@@ -187,5 +187,6 @@ pub fn borrow_more(ctx:Context<ACommonExtSubLoan>, sol_amount:u64)->Result<()>{
         Some(&[&[VAULT_SEED, &[token_vault_owner_bump]]]),
     )?;
 
+    ctx.accounts.common.safety_check(new_user_borrow - sol_fee + fee_address_fee, false)?;
     Ok(())
 }

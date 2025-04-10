@@ -77,7 +77,7 @@ pub fn buy(ctx: Context<ACommon>, sol_amount: u64) -> Result<()> {
         None,
     )?;
 
-    ctx.accounts.safety_check()?;
+    ctx.accounts.safety_check(left_sol_amount, true)?;
     Ok(())
 }
 
@@ -178,7 +178,7 @@ pub fn buy_with_referral(
             None,
         )?;
     }
-    ctx.accounts.common.safety_check()?;
+    ctx.accounts.common.safety_check(left_sol_amount, true)?;
     Ok(())
 }
 
@@ -255,6 +255,6 @@ pub fn sell(ctx: Context<ACommon>, token_amount: u64) -> Result<()> {
         )?;
     }
 
-    ctx.accounts.safety_check()?;
+    ctx.accounts.safety_check(sol_amount, false)?;
     Ok(())
 }

@@ -29,7 +29,7 @@ describe("mushi_program_buy", () => {
   const user = provider.publicKey;
 
   // Parameters for the buy operation
-  const solAmount = 1; // Amount of SOL to buy tokens with
+  const solAmount = 100; // Amount of SOL to buy tokens with
 
   it("Get initial state info", async () => {
     mainStateInfo = await connectivity.getMainStateInfo();

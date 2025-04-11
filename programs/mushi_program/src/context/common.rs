@@ -233,11 +233,18 @@ pub struct ACommonExtReferral<'info> {
     pub referral: SystemAccount<'info>,
 
     #[account(
-        init,
+        // init_if_needed,
+        // payer = common.user,
+        // associated_token::mint = common.quote_mint,
+        // associated_token::authority = referral,
+        // associated_token::token_program = quote_token_program,
+
+        // mut,
+        init_if_needed,
         payer = common.user,
-        associated_token::mint = common.quote_mint,
-        associated_token::authority = referral,
-        associated_token::token_program = quote_token_program,
+        token::mint = common.quote_mint,
+        token::authority = referral,
+        token::token_program = quote_token_program,
     )]
     pub referral_quote_ata: Box<InterfaceAccount<'info, token_interface::TokenAccount>>,
     

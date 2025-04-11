@@ -156,8 +156,8 @@ pub fn borrow_more(ctx:Context<ACommonExtSubLoan>, sol_amount:u64)->Result<()>{
     
     require!(fee_address_fee > MIN, MushiProgramError::InvalidFeeAmount);
 
-    let from = ctx.accounts.common.user_quote_ata.to_account_info();
-    let authority = ctx.accounts.common.user.to_account_info();
+    let from = ctx.accounts.common.quote_vault.to_account_info();
+    let authority = ctx.accounts.common.token_vault_owner.to_account_info();
     let quote_mint = ctx.accounts.common.quote_mint.to_account_info();
     let quote_token_program = ctx.accounts.common.quote_token_program.to_account_info();
     let decimals = ctx.accounts.common.quote_mint.decimals;

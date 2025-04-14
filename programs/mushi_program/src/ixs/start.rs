@@ -212,17 +212,17 @@ pub struct AStart<'info> {
     pub fee_receiver:SystemAccount<'info>,
     
     #[account(
-        // init,
-        // payer = admin,
-        // associated_token::mint = quote_mint,
-        // associated_token::authority = fee_receiver,
-        // associated_token::token_program = quote_token_program,
-
-        init_if_needed,
+        init,
         payer = admin,
-        token::mint = quote_mint,
-        token::authority = fee_receiver,
-        token::token_program = quote_token_program,
+        associated_token::mint = quote_mint,
+        associated_token::authority = fee_receiver,
+        associated_token::token_program = quote_token_program,
+
+        // init_if_needed,
+        // payer = admin,
+        // token::mint = quote_mint,
+        // token::authority = fee_receiver,
+        // token::token_program = quote_token_program,
     )]
     pub fee_receiver_quote_ata: Box<InterfaceAccount<'info, token_interface::TokenAccount>>,
 

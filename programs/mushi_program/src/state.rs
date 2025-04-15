@@ -13,6 +13,7 @@ pub struct MainState {
     pub sell_fee: u64,
     pub buy_fee_leverage: u64,
     pub quote_token: Pubkey,
+    pub stake_token: Pubkey,
 }
 
 impl MainState {

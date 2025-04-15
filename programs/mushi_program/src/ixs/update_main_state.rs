@@ -10,6 +10,7 @@ pub struct UpdateMainStateInput {
     sell_fee: Option<u64>,
     buy_fee: Option<u64>,
     buy_fee_leverage: Option<u64>,
+    stake_token: Option<Pubkey>,
 }
 
 pub fn update_main_state(
@@ -19,8 +20,9 @@ pub fn update_main_state(
     let state = &mut ctx.accounts.main_state;
     state.admin = input.admin.unwrap_or(state.admin);
     state.fee_receiver = input.fee_receiver.unwrap_or(state.fee_receiver);
-    state.quote_token = ctx.accounts.quote_token.key();
-    state.quote_token = ctx.accounts.quote_token.key();
+
+    let state_token = input.stake_token.unwrap_or(state.stake_token);
+    state.stake_token = state_token;
 
     let buy_fee = input.buy_fee.unwrap_or(state.buy_fee);
 
@@ -56,5 +58,5 @@ pub struct AUpdateMainState<'info> {
         bump,
     )]
     pub main_state: Account<'info, MainState>,
-    pub quote_token: InterfaceAccount<'info, token_interface::Mint>,
+    pub stake_token: InterfaceAccount<'info, token_interface::Mint>,
 }

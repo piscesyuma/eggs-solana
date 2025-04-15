@@ -27,3 +27,6 @@ pub use repay::*;
 
 pub mod remove_collateral;
 pub use remove_collateral::*;
+
+pub mod stake;
+pub use stake::*;

@@ -416,30 +416,41 @@ export class MushiProgramRpc {
     }
   }
 
-  // async updateMainState(input: {
-  //   feeReceiver?: web3.PublicKey;
-  //   admin?: web3.PublicKey;
-  // }): Promise<SendTxResult> {
-  //   try {
-  //     const admin = this.provider.publicKey;
-  //     const feeReceiver = input.feeReceiver ?? null;
-  //     const newAdmin = input.admin ?? null;
-  //     const ix = await this.program.methods
-  //       .updateMainState({ feeReceiver, admin: newAdmin })
-  //       .accounts({ admin, mainState: this.mainState })
-  //       .instruction();
-  //     const ixs = [
-  //       web3.ComputeBudgetProgram.setComputeUnitLimit({ units: 100_000 }),
-  //       ix,
-  //     ];
-  //     const updateTxRes = await this.sendTx(ixs);
-  //     if (!updateTxRes) return { isPass: false, info: "failed to send tx" };
-  //     return { isPass: true, info: { txSignature: updateTxRes } };
-  //   } catch (updateMainStateError) {
-  //     log({ updateMainStateError });
-  //     return { isPass: false, info: "failed to process input" };
-  //   }
-  // }
+  async updateMainState(input: {
+    feeReceiver?: web3.PublicKey;
+    admin?: web3.PublicKey;
+    sellFee?: number;
+    buyFee?: number;
+    buyFeeLeverage?: number;
+    stakeToken?: web3.PublicKey;
+  }): Promise<SendTxResult> {
+    try {
+      const admin = this.provider.publicKey;
+      const feeReceiver = input.feeReceiver ?? null;
+      const newAdmin = input.admin ?? null;
+      const ix = await this.program.methods
+        .updateMainState({ 
+          feeReceiver: null,
+          admin: null,
+          sellFee: null,
+          buyFee: null,
+          buyFeeLeverage: null,
+          stakeToken: input.stakeToken ?? null
+        })
+        .accounts({ admin, mainState: this.mainState })
+        .instruction();
+      const ixs = [
+        web3.ComputeBudgetProgram.setComputeUnitLimit({ units: 100_000 }),
+        ix,
+      ];
+      const updateTxRes = await this.sendTx(ixs);
+      if (!updateTxRes) return { isPass: false, info: "failed to send tx" };
+      return { isPass: true, info: { txSignature: updateTxRes } };
+    } catch (updateMainStateError) {
+      log({ updateMainStateError });
+      return { isPass: false, info: "failed to process input" };
+    }
+  }
 
   async getBaseCommonContext(): Promise<any> {
 

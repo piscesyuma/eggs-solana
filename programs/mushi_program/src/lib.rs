@@ -78,4 +78,8 @@ pub mod mushi_program {
     pub fn flash_close_position(ctx: Context<ACommonExtSubLoan>) -> Result<()> {
         ixs::flash_close_position(ctx)
     }
+
+    pub fn stake(ctx: Context<Stake>, amount: u64) -> Result<()> {
+        ixs::stake(ctx, amount)
+    }
 }

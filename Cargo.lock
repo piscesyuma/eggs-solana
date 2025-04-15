@@ -1237,6 +1237,18 @@ dependencies = [
  "anchor-lang",
  "anchor-spl",
  "mpl-token-metadata",
+ "mushi_stake_vault",
+]
+
+[[package]]
+name = "mushi_stake_vault"
+version = "0.1.0"
+source = "git+https://github.com/piscesyuma/mushi-stake-vault.git?branch=feat/cpi-interaction#cd40e1f42514ca445d257381f9fafe20ce7816fb"
+dependencies = [
+ "ahash 0.8.6",
+ "anchor-lang",
+ "anchor-spl",
+ "mpl-token-metadata",
 ]
 
 [[package]]

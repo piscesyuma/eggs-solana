@@ -75,9 +75,13 @@ pub struct Stake<'info> {
     #[account(
         init_if_needed,
         payer = user,
-        token::mint = stake_token_mint,
-        token::authority = user,
-        token::token_program = token_program,
+        associated_token::mint = stake_token_mint,
+        associated_token::authority = user,
+        associated_token::token_program = token_program,
+        // mut,
+        // token::mint = stake_token_mint,
+        // token::authority = user,
+        // token::token_program = token_program,
     )]
     pub user_stake_token_ata: Box<InterfaceAccount<'info, token_interface::TokenAccount>>,
     #[account(
@@ -114,8 +118,8 @@ pub struct Stake<'info> {
     pub stake_token_mint: InterfaceAccount<'info, token_interface::Mint>,
     #[account(
         mut,
-        seeds = [VAULT_OWNER_SEED],
-        bump,
+        // seeds = [VAULT_OWNER_SEED],
+        // bump,
     )]
     pub token_vault_owner: SystemAccount<'info>,
 

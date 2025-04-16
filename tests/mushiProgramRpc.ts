@@ -46,6 +46,8 @@ export type MainStateInfo = {
   buyFee: number;
   buyFeeLeverage: number;
   quoteToken: web3.PublicKey;
+  stakeToken: web3.PublicKey;
+  stakeVaultProgram: web3.PublicKey;
 };
 export type GlobalStateInfo = {
   started: boolean;
@@ -229,7 +231,7 @@ export class MushiProgramRpc {
 
   async getMainStateInfo(): Promise<MainStateInfo | null> {
     try {
-      const { admin, feeReceiver, sellFee, buyFee, buyFeeLeverage, quoteToken } =
+      const { admin, feeReceiver, sellFee, buyFee, buyFeeLeverage, quoteToken, stakeToken, stakeVaultProgram } =
         await this.program.account.mainState.fetch(this.mainState);
       return {
         admin,
@@ -238,6 +240,8 @@ export class MushiProgramRpc {
         buyFeeLeverage: Number(buyFeeLeverage.toString()) / ONE_BASIS_POINTS,
         feeReceiver,
         quoteToken,
+        stakeToken,
+        stakeVaultProgram,
       };
     } catch (getMainStateInfoError) {
       log({ getMainStateInfoError });
@@ -423,6 +427,7 @@ export class MushiProgramRpc {
     buyFee?: number;
     buyFeeLeverage?: number;
     stakeToken?: web3.PublicKey;
+    stakeVaultProgram?: web3.PublicKey;
   }): Promise<SendTxResult> {
     try {
       const admin = this.provider.publicKey;
@@ -435,9 +440,10 @@ export class MushiProgramRpc {
           sellFee: null,
           buyFee: null,
           buyFeeLeverage: null,
-          stakeToken: input.stakeToken ?? null
+          stakeToken: input.stakeToken ?? null,
+          stakeVaultProgram: input.stakeVaultProgram ?? null
         })
-        .accounts({ admin, mainState: this.mainState })
+        .accounts({ admin, mainState: this.mainState, stakeToken: input.stakeToken })
         .instruction();
       const ixs = [
         web3.ComputeBudgetProgram.setComputeUnitLimit({ units: 100_000 }),
@@ -940,6 +946,129 @@ export class MushiProgramRpc {
     } catch (borrowMoreError) {
       log({ borrowMoreError });
       return { isPass: false, info: "failed to borrow more" };
+    }
+  }
+
+  async stake(
+    amount: number,
+    debug: boolean = false
+  ): Promise<SendTxResult> {
+    try {
+      const rawAmount = Math.trunc(amount * TOKEN_DECIMALS_HELPER);
+      const user = this.provider.publicKey;
+
+      // Get global and main state info
+      const globalState = await this.program.account.globalStats.fetch(this.globalState);
+      const mainState = await this.program.account.mainState.fetch(this.mainState);
+      
+      // Verify that stakeVaultProgram and stakeToken are set in main state
+      if (!mainState.stakeVaultProgram || !mainState.stakeToken) {
+        return { isPass: false, info: "stakeVaultProgram or stakeToken not set in main state" };
+      }
+      
+      const mushiStakeVaultState = web3.PublicKey.findProgramAddressSync(
+        [Buffer.from("main_state")],
+        mainState.stakeVaultProgram
+      )[0];
+
+      // Get the base token (MUSHI) from global state
+      const mushiTokenMint = globalState.baseToken;
+      
+      // Get the quote token (Eclipse) from main state
+      const eclipseTokenMint = mainState.quoteToken;
+      
+      // Get the stake token from main state
+      const stakeTokenMint = mainState.stakeToken;
+      
+      // Find the token vault owner using the constant from stake.rs
+      const tokenVaultOwner = web3.PublicKey.findProgramAddressSync(
+        [Buffer.from("vault_owner")], // This should match VAULT_OWNER_SEED in mushi_stake_vault
+        mainState.stakeVaultProgram
+      )[0];
+      
+      // Get user token accounts
+      const userMushiTokenAta = getAssociatedTokenAddressSync(
+        mushiTokenMint,
+        user,
+        false, // Set to false for regular user accounts
+        baseTokenProgram
+      );
+      
+      const userEclipseTokenAta = getAssociatedTokenAddressSync(
+        eclipseTokenMint,
+        user,
+        false, // Set to false for regular user accounts
+        quoteTokenProgram
+      );
+      
+      // For user_stake_token_ata, the Rust code expects it to be initialized
+      // with the init constraint, not init_if_needed
+      const userStakeTokenAta = getAssociatedTokenAddressSync(
+        stakeTokenMint,
+        user,
+        false, // Set to false for regular user accounts
+        baseTokenProgram
+      );
+      
+      // Check if the stake token account already exists
+      const accountInfo = await this.connection.getAccountInfo(userStakeTokenAta);
+      if (accountInfo !== null) {
+        console.log("User stake token account already exists. The stake function requires a new account to be created.");
+        // return { isPass: false, info: "User stake token account already exists. The stake function requires a new account to be created." };
+      }
+      
+      // Get token vaults
+      const mushiTokenVault = getAssociatedTokenAddressSync(
+        mushiTokenMint,
+        tokenVaultOwner,
+        true, // This should be true for PDAs
+        baseTokenProgram
+      );
+      
+      const eclipseTokenVault = getAssociatedTokenAddressSync(
+        eclipseTokenMint,
+        tokenVaultOwner,
+        true, // This should be true for PDAs
+        quoteTokenProgram
+      );
+      
+      // Create the stake instruction
+      const ix = await this.program.methods
+        .stake(new BN(rawAmount))
+        .accounts({
+          user,
+          mushiStakeVault: mushiStakeVaultState,
+          globalState: this.globalState,
+          mainState: this.mainState,
+          userMushiTokenAta,
+          userEclipseTokenAta,
+          userStakeTokenAta,
+          mushiTokenVault,
+          mushiTokenMint,
+          eclipseTokenVault,
+          eclipseTokenMint,
+          stakeTokenMint,
+          tokenVaultOwner,
+          stakeVaultProgram: mainState.stakeVaultProgram,
+          tokenProgram: baseTokenProgram,
+          token2022Program: quoteTokenProgram,
+          systemProgram,
+          associatedTokenProgram,
+        })
+        .instruction();
+      
+      const ixs = [
+        web3.ComputeBudgetProgram.setComputeUnitLimit({ units: 300_000 }),
+        ix,
+      ];
+      
+      const txSignature = await this.sendTx(ixs);
+      console.log("txSignature", txSignature);
+      if (!txSignature) throw "Failed to send stake transaction";
+      return { isPass: true, info: { txSignature } };
+    } catch (stakeError) {
+      log({ stakeError });
+      return { isPass: false, info: "Failed to stake tokens: " + stakeError };
     }
   }
 }

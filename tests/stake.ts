@@ -31,16 +31,13 @@ describe("mushi_program", () => {
     programId,
   });
 
-  it("set stake vault program and token", async () => {
+  it("stake", async () => {
     const info = await connectivity.getMainStateInfo();
     console.log("main state info", { info });
     if (info) {
-      const updateRes = await connectivity.updateMainState({
-        stakeToken: new web3.PublicKey("3sqfVvQTnwM3F8ktWtYPr5LbasyUYsft6QpyZCPnWDvv"),
-        stakeVaultProgram: new web3.PublicKey("Bne2XHWW1HaMVHp6jXmCcmX3dVrtFMoYV5n2eyrvFw46")
-      });
-      if (!updateRes.isPass) throw "failed to update main state";
-      await sleep(7_000);
+      const stakeRes = await connectivity.stake(10);
+      if (!stakeRes.isPass) throw "failed to stake";
+      await sleep(15_000);
       const _info = await connectivity.getMainStateInfo();
       if (!_info) throw "failed to get main state info";
       console.log({ _info });

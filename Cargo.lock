@@ -1243,7 +1243,7 @@ dependencies = [
 [[package]]
 name = "mushi_stake_vault"
 version = "0.1.0"
-source = "git+https://github.com/piscesyuma/mushi-stake-vault.git?branch=feat/cpi-interaction#cd40e1f42514ca445d257381f9fafe20ce7816fb"
+source = "git+https://github.com/piscesyuma/mushi-stake-vault.git?branch=feat/cpi-interaction#149db0f6f9c356287b3841d227010d5bdc5cdc6d"
 dependencies = [
  "ahash 0.8.6",
  "anchor-lang",

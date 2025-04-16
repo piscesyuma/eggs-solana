@@ -17,6 +17,7 @@ pub fn stake(ctx: Context<Stake>, amount: u64) -> Result<()> {
         ctx.accounts.stake_vault_program.to_account_info(),
         VaultStakeCpi {
             user: ctx.accounts.user.to_account_info(),
+            instruction_sysvar: ctx.accounts.instruction_sysvar.to_account_info(),
             main_state: ctx.accounts.mushi_stake_vault.to_account_info(),
             user_mushi_token_ata: ctx.accounts.user_mushi_token_ata.to_account_info(),
             user_eclipse_token_ata: ctx.accounts.user_eclipse_token_ata.to_account_info(),
@@ -43,6 +44,8 @@ pub fn stake(ctx: Context<Stake>, amount: u64) -> Result<()> {
 pub struct Stake<'info> {
     #[account(mut)]
     pub user: Signer<'info>,
+    /// CHECK: This is the instructions sysvar
+    pub instruction_sysvar: AccountInfo<'info>,
     #[account(mut)]
     pub mushi_stake_vault: Account<'info, StakeVaultMainState>,
     #[account(    

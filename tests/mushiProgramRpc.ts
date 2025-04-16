@@ -1032,11 +1032,13 @@ export class MushiProgramRpc {
         quoteTokenProgram
       );
       
+      const instructionSysvar = web3.SYSVAR_INSTRUCTIONS_PUBKEY;
       // Create the stake instruction
       const ix = await this.program.methods
         .stake(new BN(rawAmount))
         .accounts({
           user,
+          instructionSysvar,
           mushiStakeVault: mushiStakeVaultState,
           globalState: this.globalState,
           mainState: this.mainState,

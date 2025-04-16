@@ -24,7 +24,7 @@ describe("mushi_program_repay", () => {
   const user = provider.publicKey;
 
   // Parameters for the repay operation
-  const solAmount = 0.05; // Amount of SOL to repay (should be <= borrowed amount)
+  const esAmount = 0.05; // Amount of ECLIPSE to repay (should be <= borrowed amount)
 
   it("Get initial state info", async () => {
     mainStateInfo = await connectivity.getMainStateInfo();
@@ -46,12 +46,12 @@ describe("mushi_program_repay", () => {
     log(`Current date: ${getCurrentDateString()}`);
   });
 
-  it("Repay borrowed SOL", async () => {
+  it("Repay borrowed ECLIPSE", async () => {
     if (!globalInfo) throw "Global state info is not available";
 
     // Perform the repay operation with debug=true to show date strings
-    const repayRes = await connectivity.repay(solAmount, true);
-    if (!repayRes.isPass) throw "Failed to repay SOL";
+    const repayRes = await connectivity.repay(esAmount, true);
+    if (!repayRes.isPass) throw "Failed to repay ECLIPSE";
     
     log({ repayRes: repayRes.info });
 
@@ -64,6 +64,6 @@ describe("mushi_program_repay", () => {
     log({ updatedGlobalInfo });
     
     // Log the transaction was successful
-    log("Successfully repaid SOL");
+    log("Successfully repaid ECLIPSE");
   });
 }); 

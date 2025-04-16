@@ -28,7 +28,7 @@ pub fn remove_collateral(ctx:Context<ACommonExtSubLoan>, amount: u64)->Result<()
 
     require!(
         user_loan.borrowed <= 
-        ctx.accounts.common.mushi_to_sol((collateral - amount)* 99)?/ 100, 
+        ctx.accounts.common.mushi_to_eclipse((collateral - amount)* 99)?/ 100, 
         MushiProgramError::RemoveCollateralFailed);
         
     sub_loans_by_date(&mut ctx.accounts.common.global_state, &mut ctx.accounts.daily_state_old_end_date, 0, amount)?;

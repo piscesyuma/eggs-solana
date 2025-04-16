@@ -24,7 +24,7 @@ describe("mushi_program_borrow_more", () => {
   const user = provider.publicKey;
 
   // Parameters for the borrow more operation
-  const additionalSolAmount = 0.05; // Additional SOL amount to borrow
+  const additionalEclipseAmount = 0.05; // Additional ECLIPSE amount to borrow
 
   it("Get initial state info", async () => {
     mainStateInfo = await connectivity.getMainStateInfo();
@@ -53,7 +53,7 @@ describe("mushi_program_borrow_more", () => {
     log(`Current loan info: ${JSON.stringify(userLoanInfo)}`);
   });
 
-  it("Borrow more SOL", async () => {
+  it("Borrow more ECLIPSE", async () => {
     if (!globalInfo) throw "Global state info is not available";
 
     // Get initial loan info
@@ -61,8 +61,8 @@ describe("mushi_program_borrow_more", () => {
     if (!initialLoanInfo) throw "Failed to get initial loan info";
     
     // Perform the borrow more operation with debug=true to show date strings
-    const borrowMoreRes = await connectivity.borrow_more(additionalSolAmount, true);
-    if (!borrowMoreRes.isPass) throw "Failed to borrow more SOL";
+    const borrowMoreRes = await connectivity.borrow_more(additionalEclipseAmount, true);
+    if (!borrowMoreRes.isPass) throw "Failed to borrow more ECLIPSE";
     
     log({ borrowMoreRes: borrowMoreRes.info });
 
@@ -85,6 +85,6 @@ describe("mushi_program_borrow_more", () => {
     log({ updatedGlobalInfo });
     
     // Log the transaction was successful
-    log("Successfully borrowed additional SOL");
+    log("Successfully borrowed additional Eclipse");
   });
 }); 

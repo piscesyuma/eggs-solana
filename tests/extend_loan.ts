@@ -24,7 +24,7 @@ describe("mushi_program_extend_loan", () => {
   const user = provider.publicKey;
 
   // Parameters for the extend loan operation
-  const solAmount = 0.01; // SOL fee amount for extending loan
+  const esAmount = 0.01; // ECLIPSE fee amount for extending loan
   const numberOfDays = 5; // Number of days to extend the loan by
 
   it("Get initial state info", async () => {

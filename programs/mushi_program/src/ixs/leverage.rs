@@ -10,11 +10,11 @@ use crate::{
 };
 use crate::context::common::ACommon;
 
-pub fn leverage(ctx:Context<ACommonExtLoan>, number_of_days: u64, sol_amount:u64)->Result<()>{
+pub fn leverage(ctx:Context<ACommonExtLoan>, number_of_days: u64, es_amount:u64)->Result<()>{
     let is_started = ctx.accounts.common.global_state.started;
     require!(is_started, MushiProgramError::NotStarted);
     require!(number_of_days < 366, MushiProgramError::InvalidNumberOfDays);
-    require!(sol_amount != 0, MushiProgramError::InvalidSolAmount);
+    require!(es_amount != 0, MushiProgramError::InvalidSolAmount);
     
     let is_expired = ctx.accounts.common.is_loan_expired()?;
     
@@ -30,7 +30,7 @@ pub fn leverage(ctx:Context<ACommonExtLoan>, number_of_days: u64, sol_amount:u64
     require!(ctx.accounts.common.user_loan.borrowed == 0, MushiProgramError::InvalidLoanAmount);
     
     // Extract values before further operations to avoid multiple borrows
-    let sol_fee = ctx.accounts.common.leverage_fee(sol_amount, number_of_days)?;
+    let sol_fee = ctx.accounts.common.leverage_fee(es_amount, number_of_days)?;
     let bump = *ctx.bumps.get("token_vault_owner").unwrap();
     let main_state_bump = *ctx.bumps.get("main_state").unwrap();
     
@@ -47,7 +47,7 @@ pub fn leverage(ctx:Context<ACommonExtLoan>, number_of_days: u64, sol_amount:u64
     
     let current_timestamp = Clock::get()?.unix_timestamp;
     let end_date = get_midnight_timestamp(current_timestamp + number_of_days as i64 * SECONDS_IN_A_DAY);
-    let user_sol = sol_amount.checked_sub(sol_fee).unwrap();
+    let user_sol = es_amount.checked_sub(sol_fee).unwrap();
 
     let fee_address_amount = sol_fee.checked_mul(3).unwrap().checked_div(10).unwrap();
     let user_borrow = user_sol.checked_mul(99).unwrap().checked_div(100).unwrap();
@@ -56,7 +56,7 @@ pub fn leverage(ctx:Context<ACommonExtLoan>, number_of_days: u64, sol_amount:u64
     let total_fee = sol_fee.checked_add(over_collateralization_amount).unwrap();
 
     // Calculate user_mushi before borrowing ctx.accounts mutably again
-    let user_mushi = ctx.accounts.common.sol_to_mushi_lev(user_sol, sub_value, sol_amount)?;
+    let user_mushi = ctx.accounts.common.eclipse_to_mushi_lev(user_sol, sub_value, es_amount)?;
     
     // Mint tokens
     mint_to_tokens_by_main_state(

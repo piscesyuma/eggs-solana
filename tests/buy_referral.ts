@@ -34,7 +34,7 @@ describe("mushi_program_buy_with_referral", () => {
   const referral = anchor.web3.Keypair.generate();
   const referralPubkey = referral.publicKey;
   // Parameters for the buy operation
-  const solAmount = 1; // Amount of SOL to buy tokens with
+  const esAmount = 1; // Amount of ECLIPSE to buy tokens with
 
   it ("Airdrop SOL to referral", async () => {
     await safeAirdrop(referralPubkey, connection);
@@ -76,11 +76,11 @@ describe("mushi_program_buy_with_referral", () => {
     // log(`Current date: ${getCurrentDateString()}`);
   });
 
-  it("Buy tokens with SOL", async () => {
+  it("Buy tokens with ECLIPSE", async () => {
     if (!globalInfo || !mainStateInfo) throw "Global state info is not available";
     
     // Perform the buy operation with debug=true to show date strings
-    const buyRes = await connectivity.buy_with_referral(solAmount, referral);
+    const buyRes = await connectivity.buy_with_referral(esAmount, referral);
     if (!buyRes.isPass) throw "Failed to buy tokens";
     
     log({ buyRes: buyRes.info });

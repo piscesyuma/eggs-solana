@@ -12,8 +12,8 @@ use crate::{
     },
 };
 
-pub fn buy(ctx: Context<ACommon>, sol_amount: u64) -> Result<()> {
-    let mushi = ctx.accounts.sol_to_mushi(sol_amount)?;
+pub fn buy(ctx: Context<ACommon>, es_amount: u64) -> Result<()> {
+    let mushi = ctx.accounts.eclipse_to_mushi(es_amount)?;
     let global_state = &mut ctx.accounts.global_state;
     liquidate(
         &mut ctx.accounts.last_liquidation_date_state,
@@ -38,15 +38,15 @@ pub fn buy(ctx: Context<ACommon>, sol_amount: u64) -> Result<()> {
     global_state.token_supply += mushi * ctx.accounts.main_state.buy_fee / FEE_BASE_1000;
 
     // calc sender SOLs
-    let fee: u64 = sol_amount
+    let fee: u64 = es_amount
         .checked_mul(FEES_BUY + FEES_BUY_REFERRAL)
         .unwrap()
         .checked_div(10_000)
         .unwrap();
-    // let fee: u64 = sol_amount.checked_div(FEES_BUY).unwrap();
+    // let fee: u64 = es_amount.checked_div(FEES_BUY).unwrap();
 
     require!(fee > MIN, MushiProgramError::TooSmallTeamFee);
-    let left_sol_amount = sol_amount.checked_sub(fee).unwrap();
+    let left_es_amount = es_amount.checked_sub(fee).unwrap();
 
     // sending quote token
     let authority = ctx.accounts.user.to_account_info();
@@ -72,27 +72,27 @@ pub fn buy(ctx: Context<ACommon>, sol_amount: u64) -> Result<()> {
         authority.clone(),
         mint.clone(),
         token_program.clone(),
-        left_sol_amount,
+        left_es_amount,
         decimals,
         None,
     )?;
 
-    ctx.accounts.safety_check(left_sol_amount, true)?;
+    ctx.accounts.safety_check(left_es_amount, true)?;
     Ok(())
 }
 
 #[derive(AnchorSerialize, AnchorDeserialize, Debug, Clone)]
 pub struct BuyWithReferralInput {
-    pub sol_amount: u64,
+    pub es_amount: u64,
     pub referral_pubkey: Pubkey,
 }
 
 pub fn buy_with_referral(
     ctx: Context<ACommonExtReferral>,
     referral_address: Pubkey,
-    sol_amount: u64,
+    es_amount: u64,
 ) -> Result<()> {
-    let mushi = ctx.accounts.common.sol_to_mushi(sol_amount)?;
+    let mushi = ctx.accounts.common.eclipse_to_mushi(es_amount)?;
     let global_state = &mut ctx.accounts.common.global_state;
     liquidate(
         &mut ctx.accounts.common.last_liquidation_date_state,
@@ -119,24 +119,24 @@ pub fn buy_with_referral(
 
     // calc sender SOLs
 
-    let fee_treasury: u64 = sol_amount
+    let fee_treasury: u64 = es_amount
         .checked_mul(FEES_BUY)
         .unwrap()
         .checked_div(10_000)
         .unwrap();
-    let fee_referral: u64 = sol_amount
+    let fee_referral: u64 = es_amount
         .checked_mul(FEES_BUY_REFERRAL)
         .unwrap()
         .checked_div(10_000)
         .unwrap();
-    // let fee: u64 = sol_amount.checked_div(FEES_BUY).unwrap();
+    // let fee: u64 = es_amount.checked_div(FEES_BUY).unwrap();
 
     require!(fee_treasury > MIN, MushiProgramError::TooSmallTeamFee);
     if fee_referral <= MIN {
         return Err(MushiProgramError::TooSmallTeamFee.into());
     }
 
-    let left_sol_amount = sol_amount.checked_sub(fee_treasury + fee_referral).unwrap();
+    let left_es_amount = es_amount.checked_sub(fee_treasury + fee_referral).unwrap();
     {
         // sending quote token
         let authority = ctx.accounts.common.user.to_account_info();
@@ -173,17 +173,17 @@ pub fn buy_with_referral(
             authority.clone(),
             mint.clone(),
             token_program.clone(),
-            left_sol_amount,
+            left_es_amount,
             decimals,
             None,
         )?;
     }
-    ctx.accounts.common.safety_check(left_sol_amount, true)?;
+    ctx.accounts.common.safety_check(left_es_amount, true)?;
     Ok(())
 }
 
 pub fn sell(ctx: Context<ACommon>, token_amount: u64) -> Result<()> {
-    let sol_amount = ctx.accounts.mushi_to_sol(token_amount)?;
+    let es_amount = ctx.accounts.mushi_to_eclipse(token_amount)?;
     let global_state = &mut ctx.accounts.global_state;
     liquidate(
         &mut ctx.accounts.last_liquidation_date_state,
@@ -212,7 +212,7 @@ pub fn sell(ctx: Context<ACommon>, token_amount: u64) -> Result<()> {
     let signer_seeds: &[&[&[u8]]] =
         &[&[VAULT_SEED, &[*ctx.bumps.get("token_vault_owner").unwrap()]]];
 
-    let sol_fee_amount = sol_amount
+    let sol_fee_amount = es_amount
         .checked_mul(FEES_SELL)
         .unwrap()
         .checked_div(10_000)
@@ -234,13 +234,13 @@ pub fn sell(ctx: Context<ACommon>, token_amount: u64) -> Result<()> {
             authority.clone(),
             mint.clone(),
             token_program.clone(),
-            sol_amount * ctx.accounts.main_state.sell_fee / FEE_BASE_1000,
+            es_amount * ctx.accounts.main_state.sell_fee / FEE_BASE_1000,
             decimals,
             Some(signer_seeds),
         )?;
 
         // team fee
-        if sol_amount / FEES_SELL <= MIN {
+        if es_amount / FEES_SELL <= MIN {
             return Err(MushiProgramError::TooSmallInputAmount.into());
         }
         transfer_tokens_checked(
@@ -255,6 +255,6 @@ pub fn sell(ctx: Context<ACommon>, token_amount: u64) -> Result<()> {
         )?;
     }
 
-    ctx.accounts.safety_check(sol_amount, false)?;
+    ctx.accounts.safety_check(es_amount, false)?;
     Ok(())
 }

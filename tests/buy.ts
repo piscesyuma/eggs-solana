@@ -29,7 +29,7 @@ describe("mushi_program_buy", () => {
   const user = provider.publicKey;
 
   // Parameters for the buy operation
-  const solAmount = 100; // Amount of SOL to buy tokens with
+  const esAmount = 100; // Amount of ECLIPSE to buy tokens with
 
   it("Get initial state info", async () => {
     mainStateInfo = await connectivity.getMainStateInfo();
@@ -51,11 +51,11 @@ describe("mushi_program_buy", () => {
     log(`Current date: ${getCurrentDateString()}`);
   });
 
-  it("Buy tokens with SOL", async () => {
+  it("Buy tokens with ECLIPSE", async () => {
     if (!globalInfo) throw "Global state info is not available";
 
     // Perform the buy operation with debug=true to show date strings
-    const buyRes = await connectivity.buy(solAmount, true);
+    const buyRes = await connectivity.buy(esAmount, true);
     if (!buyRes.isPass) throw "Failed to buy tokens";
     
     log({ buyRes: buyRes.info });

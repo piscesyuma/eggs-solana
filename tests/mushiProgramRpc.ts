@@ -26,6 +26,8 @@ export type Result<T, E = string> =
 export type SendTxResult = Result<{ txSignature: string }, string>;
 export const TOKEN_DECIMALS_HELPER = 1_000_000_000; // 9 decimals
 export const SOL_DECIMALS_HELPER = 1_000_000_000; // 9 decimals
+export const ECLIPSE_DECIMALS_HELPER = 1_000_000_000;
+
 const SECONDS_IN_A_DAY = 86400;
 const associatedTokenProgram = ASSOCIATED_TOKEN_PROGRAM_ID;
 const mplProgram = new web3.PublicKey(
@@ -332,7 +334,7 @@ export class MushiProgramRpc {
     tokenName: string;
     tokenSymbol: string;
     tokenUri: string;
-    solAmount: number;
+    esAmount: number;
     quoteTokenMint: web3.PublicKey;
   }): Promise<SendTxResult> {
     try {
@@ -341,7 +343,7 @@ export class MushiProgramRpc {
       const { feeReceiver } = mainStateInfo;
 
       console.log('quoteTokenMint', input.quoteTokenMint)
-      const { tokenName, tokenSymbol, tokenUri, solAmount } = input;
+      const { tokenName, tokenSymbol, tokenUri, esAmount } = input;
       const tokenKp = web3.Keypair.generate();
       const token = tokenKp.publicKey;
       const admin = this.provider.publicKey;
@@ -379,8 +381,8 @@ export class MushiProgramRpc {
       console.log("adminQuoteAta", adminQuoteAta.toBase58())
       const ix = await this.program.methods
         .start({
-          solAmount: new BN(
-            Math.trunc(solAmount * SOL_DECIMALS_HELPER)
+          esAmount: new BN(
+            Math.trunc(esAmount * ECLIPSE_DECIMALS_HELPER)
           ),
           tokenName,
           tokenSymbol,
@@ -537,15 +539,15 @@ export class MushiProgramRpc {
   }
   
   async buy(
-    solAmount: number,
+    esAmount: number,
     debug: boolean = false
   ): Promise<SendTxResult> {
     try {
-      const rawSolAmount = Math.trunc(solAmount * SOL_DECIMALS_HELPER);
+      const rawesAmount = Math.trunc(esAmount * ECLIPSE_DECIMALS_HELPER);
       
       const baseCommonContext = await this.getBaseCommonContext();
       const ix = await this.program.methods
-        .buy(new BN(rawSolAmount))
+        .buy(new BN(rawesAmount))
         .accounts(baseCommonContext)
         .instruction();
       
@@ -564,12 +566,12 @@ export class MushiProgramRpc {
   }
 
   async buy_with_referral(
-    solAmount: number,
+    esAmount: number,
     referral: web3.Keypair
   ): Promise<SendTxResult> {
     try {
 
-      const rawSolAmount = Math.trunc(solAmount * SOL_DECIMALS_HELPER);
+      const rawesAmount = Math.trunc(esAmount * ECLIPSE_DECIMALS_HELPER);
       const mainStateInfo = await this.getMainStateInfo();
       if (!mainStateInfo) throw "Failed to get main state info";
       const { quoteToken } = mainStateInfo;
@@ -592,7 +594,7 @@ export class MushiProgramRpc {
       const ix = await this.program.methods
         .buyWithReferral(
           referralPubkey,
-          new BN(rawSolAmount),
+          new BN(rawesAmount),
         )
         .accounts({
           common: baseCommonContext,
@@ -645,12 +647,12 @@ export class MushiProgramRpc {
   }
 
   async borrow(
-    solAmount: number,
+    esAmount: number,
     numberOfDays: number,
     debug: boolean = false
   ): Promise<SendTxResult> {
     try {
-      const rawSolAmount = Math.trunc(solAmount * SOL_DECIMALS_HELPER);
+      const rawesAmount = Math.trunc(esAmount * ECLIPSE_DECIMALS_HELPER);
       const user = this.provider.publicKey;
       // Calculate the midnight timestamp in seconds (Unix timestamp) as the program does
       const now = Math.floor(Date.now() / 1000); // Current time in seconds
@@ -660,7 +662,7 @@ export class MushiProgramRpc {
       
       const baseCommonContext = await this.getBaseCommonContext();
       const ix = await this.program.methods
-        .borrow(new BN(numberOfDays), new BN(rawSolAmount))
+        .borrow(new BN(numberOfDays), new BN(rawesAmount))
         .accounts({
           common: baseCommonContext,
           user,
@@ -687,12 +689,12 @@ export class MushiProgramRpc {
   }
 
   async leverage(
-    solAmount: number,
+    esAmount: number,
     numberOfDays: number,
     debug: boolean = false
   ): Promise<SendTxResult> {
     try {
-      const rawSolAmount = Math.trunc(solAmount * SOL_DECIMALS_HELPER);
+      const rawesAmount = Math.trunc(esAmount * ECLIPSE_DECIMALS_HELPER);
       const user = this.provider.publicKey;
       // Calculate the midnight timestamp in seconds (Unix timestamp) as the program does
       const now = Math.floor(Date.now() / 1000); // Current time in seconds
@@ -703,7 +705,7 @@ export class MushiProgramRpc {
       const baseCommonContext = await this.getBaseCommonContext();
       
       const ix = await this.program.methods
-        .leverage(new BN(numberOfDays), new BN(rawSolAmount) )
+        .leverage(new BN(numberOfDays), new BN(rawesAmount) )
         .accounts({
           common: baseCommonContext,
           user,
@@ -725,7 +727,7 @@ export class MushiProgramRpc {
   }
 
   async repay(
-    solAmount: number,
+    esAmount: number,
     debug: boolean = false
   ): Promise<SendTxResult> {
     try {
@@ -733,12 +735,12 @@ export class MushiProgramRpc {
       if (!userLoanInfo) throw "Failed to get user loan info";
       const { endDate } = userLoanInfo;
 
-      const rawSolAmount = Math.trunc(solAmount * SOL_DECIMALS_HELPER);
+      const rawesAmount = Math.trunc(esAmount * ECLIPSE_DECIMALS_HELPER);
       
       const baseCommonContext = await this.getBaseCommonContext();
 
       const ix = await this.program.methods
-        .repay(new BN(rawSolAmount))
+        .repay(new BN(rawesAmount))
         .accounts({
           common: baseCommonContext,
           dailyStateOldEndDate: web3.PublicKey.findProgramAddressSync(
@@ -798,18 +800,18 @@ export class MushiProgramRpc {
   }
 
   async close_position(
-    solAmount: number,
+    esAmount: number,
     debug: boolean = false
   ): Promise<SendTxResult> {
     try {
       const userLoanInfo = await this.getUserLoanInfo(this.provider.publicKey);
       if (!userLoanInfo) throw "Failed to get user loan info";
       const { endDate } = userLoanInfo;
-      const rawSolAmount = Math.trunc(solAmount * SOL_DECIMALS_HELPER);
+      const rawesAmount = Math.trunc(esAmount * ECLIPSE_DECIMALS_HELPER);
 
       const baseCommonContext = await this.getBaseCommonContext();
       const ix = await this.program.methods
-        .closePosition(new BN(rawSolAmount))
+        .closePosition(new BN(rawesAmount))
         .accounts({
           common: baseCommonContext,
           dailyStateOldEndDate: web3.PublicKey.findProgramAddressSync(
@@ -913,7 +915,7 @@ export class MushiProgramRpc {
   }
 
   async borrow_more(
-    solAmount: number,
+    esAmount: number,
     debug: boolean = false
   ): Promise<SendTxResult> {
     try {
@@ -921,11 +923,11 @@ export class MushiProgramRpc {
       if (!userLoanInfo) throw "Failed to get user loan info";
       const { endDate } = userLoanInfo;
 
-      const rawSolAmount = Math.trunc(solAmount * SOL_DECIMALS_HELPER);
+      const rawesAmount = Math.trunc(esAmount * ECLIPSE_DECIMALS_HELPER);
       
       const baseCommonContext = await this.getBaseCommonContext();
       const ix = await this.program.methods
-        .borrowMore(new BN(rawSolAmount))
+        .borrowMore(new BN(rawesAmount))
         .accounts({
           common: baseCommonContext,
           dailyStateOldEndDate: web3.PublicKey.findProgramAddressSync(

@@ -10,11 +10,11 @@ use crate::{
 };
 use crate::context::common::ACommon;
 
-pub fn repay(ctx:Context<ACommonExtSubLoan>, sol_amount: u64)->Result<()>{
+pub fn repay(ctx:Context<ACommonExtSubLoan>, es_amount: u64)->Result<()>{
     let user_loan = & ctx.accounts.common.user_loan;
     let borrowed = user_loan.borrowed;
-    require!(borrowed > sol_amount, MushiProgramError::InvalidSolAmount);
-    require!(sol_amount != 0, MushiProgramError::InvalidSolAmount);
+    require!(borrowed > es_amount, MushiProgramError::InvalidSolAmount);
+    require!(es_amount != 0, MushiProgramError::InvalidSolAmount);
 
     let quote_mint = ctx.accounts.common.quote_mint.to_account_info();
     let quote_token_program = ctx.accounts.common.quote_token_program.to_account_info();
@@ -26,15 +26,15 @@ pub fn repay(ctx:Context<ACommonExtSubLoan>, sol_amount: u64)->Result<()>{
         ctx.accounts.common.user.to_account_info(),
         quote_mint.clone(),
         quote_token_program.clone(),
-        sol_amount, 
+        es_amount, 
         decimals,
         None,
     )?;
 
-    sub_loans_by_date(&mut ctx.accounts.common.global_state, &mut ctx.accounts.daily_state_old_end_date, sol_amount, 0)?;
-    let new_borrow = borrowed - sol_amount;
+    sub_loans_by_date(&mut ctx.accounts.common.global_state, &mut ctx.accounts.daily_state_old_end_date, es_amount, 0)?;
+    let new_borrow = borrowed - es_amount;
     let user_loan = &mut ctx.accounts.common.user_loan;
     user_loan.borrowed = new_borrow;
-    ctx.accounts.common.safety_check(sol_amount, true)?;
+    ctx.accounts.common.safety_check(es_amount, true)?;
     Ok(())
 }

@@ -35,32 +35,32 @@ pub mod mushi_program {
         ixs::start(ctx, input)
     }
 
-    pub fn buy(ctx: Context<ACommon>, sol_amount: u64) -> Result<()> {
-        ixs::buy(ctx, sol_amount)
+    pub fn buy(ctx: Context<ACommon>, es_amount: u64) -> Result<()> {
+        ixs::buy(ctx, es_amount)
     }
 
-    pub fn buy_with_referral(ctx: Context<ACommonExtReferral>, referral_address: Pubkey, sol_amount: u64) -> Result<()> {
-        ixs::buy_with_referral(ctx, referral_address, sol_amount)
+    pub fn buy_with_referral(ctx: Context<ACommonExtReferral>, referral_address: Pubkey, es_amount: u64) -> Result<()> {
+        ixs::buy_with_referral(ctx, referral_address, es_amount)
     }
 
     pub fn sell(ctx: Context<ACommon>, token_amount: u64) -> Result<()> {
         ixs::sell(ctx, token_amount)
     }
 
-    pub fn borrow(ctx: Context<ACommonExtLoan>, number_of_days: u64, sol_amount: u64) -> Result<()> {
-        ixs::borrow(ctx, number_of_days, sol_amount)
+    pub fn borrow(ctx: Context<ACommonExtLoan>, number_of_days: u64, es_amount: u64) -> Result<()> {
+        ixs::borrow(ctx, number_of_days, es_amount)
     }
 
-    pub fn borrow_more(ctx: Context<ACommonExtSubLoan>, sol_amount: u64) -> Result<()> {
-        ixs::borrow_more(ctx, sol_amount)
+    pub fn borrow_more(ctx: Context<ACommonExtSubLoan>, es_amount: u64) -> Result<()> {
+        ixs::borrow_more(ctx, es_amount)
     }
 
-    pub fn repay(ctx: Context<ACommonExtSubLoan>, sol_amount: u64) -> Result<()> {
-        ixs::repay(ctx, sol_amount)
+    pub fn repay(ctx: Context<ACommonExtSubLoan>, es_amount: u64) -> Result<()> {
+        ixs::repay(ctx, es_amount)
     }
 
-    pub fn leverage(ctx: Context<ACommonExtLoan>, number_of_days: u64, sol_amount: u64) -> Result<()> {
-        ixs::leverage(ctx, number_of_days, sol_amount)
+    pub fn leverage(ctx: Context<ACommonExtLoan>, number_of_days: u64, es_amount: u64) -> Result<()> {
+        ixs::leverage(ctx, number_of_days, es_amount)
     }
 
     pub fn remove_collateral(ctx: Context<ACommonExtSubLoan>, amount: u64) -> Result<()> {
@@ -71,8 +71,8 @@ pub mod mushi_program {
         ixs::extend_loan(ctx, number_of_days)
     }
     
-    pub fn close_position(ctx: Context<ACommonExtSubLoan>, sol_amount: u64) -> Result<()> {
-        ixs::close_position(ctx, sol_amount)
+    pub fn close_position(ctx: Context<ACommonExtSubLoan>, es_amount: u64) -> Result<()> {
+        ixs::close_position(ctx, es_amount)
     }
 
     pub fn flash_close_position(ctx: Context<ACommonExtSubLoan>) -> Result<()> {

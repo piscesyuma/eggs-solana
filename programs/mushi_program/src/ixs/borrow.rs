@@ -10,13 +10,13 @@ use crate::{
 };
 use crate::context::common::ACommon;
 
-pub fn borrow(ctx:Context<ACommonExtLoan>, number_of_days: u64, sol_amount:u64)->Result<()>{
+pub fn borrow(ctx:Context<ACommonExtLoan>, number_of_days: u64, es_amount:u64)->Result<()>{
     let is_expired = ctx.accounts.common.is_loan_expired()?;
-    let user_mushi = ctx.accounts.common.sol_to_mushi_no_trade_ceil(sol_amount)?;
+    let user_mushi = ctx.accounts.common.eclipse_to_mushi_no_trade_ceil(es_amount)?;
     let user_loan = &mut ctx.accounts.common.user_loan;
     
     require!(number_of_days < 366, MushiProgramError::InvalidNumberOfDays);
-    require!(sol_amount != 0, MushiProgramError::InvalidSolAmount);
+    require!(es_amount != 0, MushiProgramError::InvalidSolAmount);
 
     if is_expired {
         user_loan.borrowed = 0;
@@ -40,10 +40,10 @@ pub fn borrow(ctx:Context<ACommonExtLoan>, number_of_days: u64, sol_amount:u64)-
 
     let current_timestamp = Clock::get()?.unix_timestamp;
     let end_date = get_midnight_timestamp(current_timestamp + number_of_days as i64 * SECONDS_IN_A_DAY);
-    let sol_fee = get_interest_fee(sol_amount, number_of_days);
+    let sol_fee = get_interest_fee(es_amount, number_of_days);
     let fee_address_fee = sol_fee.checked_mul(3).unwrap().checked_div(10).unwrap();
     // AUDIT: eggs required from user round up?
-    let new_user_borrow = sol_amount.checked_mul(99).unwrap().checked_div(100).unwrap();
+    let new_user_borrow = es_amount.checked_mul(99).unwrap().checked_div(100).unwrap();
     
     user_loan.collateral = user_mushi;
     user_loan.borrowed = new_user_borrow;
@@ -96,12 +96,12 @@ pub fn borrow(ctx:Context<ACommonExtLoan>, number_of_days: u64, sol_amount:u64)-
     Ok(())
 }
 
-pub fn borrow_more(ctx:Context<ACommonExtSubLoan>, sol_amount:u64)->Result<()>{
+pub fn borrow_more(ctx:Context<ACommonExtSubLoan>, es_amount:u64)->Result<()>{
     let is_expired = ctx.accounts.common.is_loan_expired()?;
     require!(!is_expired, MushiProgramError::LoanExpired);
-    require!(sol_amount != 0, MushiProgramError::InvalidSolAmount);
+    require!(es_amount != 0, MushiProgramError::InvalidSolAmount);
 
-    let user_mushi = ctx.accounts.common.sol_to_mushi_no_trade_ceil(sol_amount)?;
+    let user_mushi = ctx.accounts.common.eclipse_to_mushi_no_trade_ceil(es_amount)?;
     let user_loan = & ctx.accounts.common.user_loan;
  
     let global_state = &mut ctx.accounts.common.global_state;
@@ -120,11 +120,11 @@ pub fn borrow_more(ctx:Context<ACommonExtSubLoan>, sol_amount:u64)->Result<()>{
 
     let today_midnight = get_midnight_timestamp(Clock::get()?.unix_timestamp);
     let new_borrow_length = (user_end_date - today_midnight) / SECONDS_IN_A_DAY;
-    let sol_fee = get_interest_fee(sol_amount, new_borrow_length as u64);
+    let sol_fee = get_interest_fee(es_amount, new_borrow_length as u64);
 
     let fee_address_fee = sol_fee.checked_mul(3).unwrap().checked_div(10).unwrap();
-    let new_user_borrow = sol_amount.checked_mul(99).unwrap().checked_div(100).unwrap();
-    let user_borrowed_in_mushi = ctx.accounts.common.sol_to_mushi_no_trade(user_borrowed)?;
+    let new_user_borrow = es_amount.checked_mul(99).unwrap().checked_div(100).unwrap();
+    let user_borrowed_in_mushi = ctx.accounts.common.eclipse_to_mushi_no_trade(user_borrowed)?;
     let user_excess_in_mushi = user_collateral.checked_mul(99).unwrap().checked_div(100).unwrap().checked_sub(user_borrowed_in_mushi).unwrap();
     let mut require_collateral_from_user = user_mushi;
 

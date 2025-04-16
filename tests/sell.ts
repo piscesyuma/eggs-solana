@@ -31,7 +31,7 @@ describe("mushi_program_sell", () => {
   const user = provider.publicKey;
 
   // Parameters for the sell operation
-  const tokenAmount = 100; // Amount of tokens to sell for SOL
+  const tokenAmount = 100; // Amount of tokens to sell for ECLIPSE
 
   it("Get initial state info", async () => {
     mainStateInfo = await connectivity.getMainStateInfo();
@@ -49,7 +49,7 @@ describe("mushi_program_sell", () => {
     }
   });
 
-  it("Sell tokens for SOL", async () => {
+  it("Sell tokens for ECLIPSE", async () => {
     if (!globalInfo) throw "Global state info is not available";
 
     // Perform the sell operation

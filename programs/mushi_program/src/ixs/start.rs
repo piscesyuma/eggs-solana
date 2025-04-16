@@ -22,7 +22,7 @@ use crate::{
 
 #[derive(AnchorSerialize, AnchorDeserialize, Debug, Clone)]
 pub struct StartInput {
-    pub sol_amount: u64,
+    pub es_amount: u64,
     pub token_name: String,
     pub token_symbol: String,
     pub token_uri: String,
@@ -34,7 +34,7 @@ pub fn start(ctx: Context<AStart>, input: StartInput) -> Result<()> {
     let mushi_mint = ctx.accounts.base_token.to_account_info();
     let admin = ctx.accounts.admin.to_account_info();
     //checks
-    let team_mint_amount = input.sol_amount * MIN;
+    let team_mint_amount = input.es_amount * MIN;
     require!(team_mint_amount >= LAMPORTS_PER_SOL, MushiProgramError::InvalidInput);
     
     
@@ -78,7 +78,7 @@ pub fn start(ctx: Context<AStart>, input: StartInput) -> Result<()> {
         ctx.accounts.admin.to_account_info(),
         quote_mint.clone(),
         quote_token_program.clone(),
-        input.sol_amount, 
+        input.es_amount, 
         decimals,
         None,
     )?;

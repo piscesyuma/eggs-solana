@@ -10,12 +10,12 @@ use crate::{
 };
 use crate::context::common::ACommon;
 
-pub fn close_position(ctx:Context<ACommonExtSubLoan>, sol_amount: u64)->Result<()>{
+pub fn close_position(ctx:Context<ACommonExtSubLoan>, es_amount: u64)->Result<()>{
     let user_loan = & ctx.accounts.common.user_loan;
     let borrowed = user_loan.borrowed;
     let collateral = user_loan.collateral;
     require!(!ctx.accounts.common.is_loan_expired()?, MushiProgramError::LoanExpired);
-    require!(borrowed == sol_amount, MushiProgramError::InvalidLoanAmount);
+    require!(borrowed == es_amount, MushiProgramError::InvalidLoanAmount);
 
     let quote_mint = ctx.accounts.common.quote_mint.to_account_info();
     let quote_token_program = ctx.accounts.common.quote_token_program.to_account_info();
@@ -27,7 +27,7 @@ pub fn close_position(ctx:Context<ACommonExtSubLoan>, sol_amount: u64)->Result<(
         ctx.accounts.common.user.to_account_info(),
         quote_mint.clone(),
         quote_token_program.clone(),
-        sol_amount, 
+        es_amount, 
         decimals,
         None,
     )?;
@@ -48,7 +48,7 @@ pub fn close_position(ctx:Context<ACommonExtSubLoan>, sol_amount: u64)->Result<(
     user_loan.collateral = 0;
     user_loan.end_date = 0;
     user_loan.number_of_days = 0;
-    ctx.accounts.common.safety_check(sol_amount, true)?;
+    ctx.accounts.common.safety_check(es_amount, true)?;
     
     Ok(())
 }
@@ -70,7 +70,7 @@ pub fn flash_close_position(ctx:Context<ACommonExtSubLoan>)->Result<()>{
     let borrowed = user_loan.borrowed;
     let collateral = user_loan.collateral;
 
-    let collateral_in_sol = ctx.accounts.common.mushi_to_sol(collateral)?;
+    let collateral_in_sol = ctx.accounts.common.mushi_to_eclipse(collateral)?;
     let signer_seeds:&[&[&[u8]]] = &[&[VAULT_SEED, &[*ctx.bumps.get("token_vault_owner").unwrap()]]];
     burn_tokens(
         ctx.accounts.common.token_vault.to_account_info(),

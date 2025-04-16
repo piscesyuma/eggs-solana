@@ -31,7 +31,7 @@ describe("mushi_program_borrow", () => {
   const user = provider.publicKey;
 
   // Parameters for the borrow operation
-  const solAmount = 0.1; // Amount of SOL to borrow
+  const esAmount = 0.1; // Amount of Eclipse to borrow
   const numberOfDays = 7; // Loan duration in days
 
   it("Get initial state info", async () => {
@@ -54,12 +54,12 @@ describe("mushi_program_borrow", () => {
     log(`Current date: ${getCurrentDateString()}`);
   });
 
-  it("Borrow SOL", async () => {
+  it("Borrow ECLIPSE", async () => {
     if (!globalInfo) throw "Global state info is not available";
 
     // Perform the borrow operation with debug=true to show date strings
-    const borrowRes = await connectivity.borrow(solAmount, numberOfDays, true);
-    if (!borrowRes.isPass) throw "Failed to borrow SOL";
+    const borrowRes = await connectivity.borrow(esAmount, numberOfDays, true);
+    if (!borrowRes.isPass) throw "Failed to borrow ECLIPSE";
     
     log({ borrowRes: borrowRes.info });
 
@@ -72,6 +72,6 @@ describe("mushi_program_borrow", () => {
     log({ updatedGlobalInfo });
     
     // Log the transaction was successful
-    log("Successfully borrowed SOL");
+    log("Successfully borrowed ECLIPSE");
   });
 }); 

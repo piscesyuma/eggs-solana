@@ -24,8 +24,7 @@ describe("mushi_program_close_position", () => {
   const user = provider.publicKey;
 
   // Parameters for the close_position operation
-  // const solAmount = 0.099; // Amount of SOL to close position with
-  const solAmount = 0.097836953;
+  const esAmount = 0.097836953;
   it("Get initial state info", async () => {
     mainStateInfo = await connectivity.getMainStateInfo();
     if (!mainStateInfo) throw "Failed to get main state info";
@@ -50,7 +49,7 @@ describe("mushi_program_close_position", () => {
     if (!globalInfo) throw "Global state info is not available";
 
     // Perform the close position operation with debug=true to show date strings
-    const closePositionRes = await connectivity.close_position(solAmount, true);
+    const closePositionRes = await connectivity.close_position(esAmount, true);
     if (!closePositionRes.isPass) throw "Failed to close position";
     
     log({ closePositionRes: closePositionRes.info });

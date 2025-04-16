@@ -24,7 +24,7 @@ describe("mushi_program_leverage", () => {
   const user = provider.publicKey;
 
   // Parameters for the leverage operation
-  const solAmount = 0.1; // Amount of SOL to leverage
+  const esAmount = 0.1; // Amount of SOL to leverage
   const numberOfDays = 7; // Loan duration in days
 
   it("Get initial state info", async () => {
@@ -51,7 +51,7 @@ describe("mushi_program_leverage", () => {
     if (!globalInfo) throw "Global state info is not available";
 
     // Perform the leverage operation with debug=true to show date strings
-    const leverageRes = await connectivity.leverage(solAmount, numberOfDays, true);
+    const leverageRes = await connectivity.leverage(esAmount, numberOfDays, true);
     if (!leverageRes.isPass) throw "Failed to create leveraged position";
     
     log({ leverageRes: leverageRes.info });

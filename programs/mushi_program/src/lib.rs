@@ -82,4 +82,8 @@ pub mod mushi_program {
     pub fn stake(ctx: Context<Stake>, amount: u64) -> Result<()> {
         ixs::stake(ctx, amount)
     }
+
+    pub fn unstake(ctx: Context<Unstake>, amount: u64) -> Result<()> {
+        ixs::unstake(ctx, amount)
+    }
 }

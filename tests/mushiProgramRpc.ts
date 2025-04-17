@@ -58,6 +58,7 @@ export type GlobalStateInfo = {
   lastLiquidationDate: number;
   totalBorrowed: number;
   totalCollateral: number;
+  totalEclipseTokenStaked: number;
   lastPrice: number;
 };
 export type UserLoanInfo = {
@@ -253,7 +254,7 @@ export class MushiProgramRpc {
 
   async getGlobalInfo(): Promise<GlobalStateInfo | null> {
     try {
-      const { tokenSupply, baseToken, started, lastLiquidationDate, totalBorrowed, totalCollateral, lastPrice } =
+      const { tokenSupply, baseToken, started, lastLiquidationDate, totalBorrowed, totalCollateral, totalEclipseTokenStaked, lastPrice } =
         await this.program.account.globalStats.fetch(this.globalState);
       return {
         tokenSupply: Number(tokenSupply.toString()),
@@ -262,6 +263,7 @@ export class MushiProgramRpc {
         lastLiquidationDate: Number(lastLiquidationDate.toString()),
         totalBorrowed: Number(totalBorrowed.toString()),
         totalCollateral: Number(totalCollateral.toString()),
+        totalEclipseTokenStaked: Number(totalEclipseTokenStaked.toString()),
         lastPrice: Number(lastPrice.toString()),
       };
     } catch (getGlobalStateInfoError) {
@@ -983,7 +985,7 @@ export class MushiProgramRpc {
       const stakeTokenMint = mainState.stakeToken;
       
       // Find the token vault owner using the constant from stake.rs
-      const tokenVaultOwner = web3.PublicKey.findProgramAddressSync(
+      const stakingProgramTokenVaultOwner = web3.PublicKey.findProgramAddressSync(
         [Buffer.from("vault_owner")], // This should match VAULT_OWNER_SEED in mushi_stake_vault
         mainState.stakeVaultProgram
       )[0];
@@ -1019,17 +1021,23 @@ export class MushiProgramRpc {
         // return { isPass: false, info: "User stake token account already exists. The stake function requires a new account to be created." };
       }
       
-      // Get token vaults
       const mushiTokenVault = getAssociatedTokenAddressSync(
         mushiTokenMint,
-        tokenVaultOwner,
+        stakingProgramTokenVaultOwner,
         true, // This should be true for PDAs
         baseTokenProgram
       );
-      
-      const eclipseTokenVault = getAssociatedTokenAddressSync(
+
+      const eclipseTokenStakingProgramVault = getAssociatedTokenAddressSync(
         eclipseTokenMint,
-        tokenVaultOwner,
+        stakingProgramTokenVaultOwner,
+        true, // This should be true for PDAs
+        quoteTokenProgram
+      );
+
+      const eclipseTokenMushiProgramVault = getAssociatedTokenAddressSync(
+        eclipseTokenMint,
+        this.vaultOwner,
         true, // This should be true for PDAs
         quoteTokenProgram
       );
@@ -1045,14 +1053,15 @@ export class MushiProgramRpc {
           globalState: this.globalState,
           mainState: this.mainState,
           userMushiTokenAta,
-          userEclipseTokenAta,
           userStakeTokenAta,
+          eclipseTokenStakingProgramVault,
+          eclipseTokenMushiProgramVault,
           mushiTokenVault,
           mushiTokenMint,
-          eclipseTokenVault,
           eclipseTokenMint,
           stakeTokenMint,
-          tokenVaultOwner,
+          stakingProgramTokenVaultOwner,
+          mushiProgramTokenVaultOwner: this.vaultOwner,
           stakeVaultProgram: mainState.stakeVaultProgram,
           tokenProgram: baseTokenProgram,
           token2022Program: quoteTokenProgram,
@@ -1108,7 +1117,7 @@ export class MushiProgramRpc {
       const stakeTokenMint = mainState.stakeToken;
       
       // Find the token vault owner using the constant from stake.rs
-      const tokenVaultOwner = web3.PublicKey.findProgramAddressSync(
+      const stakingProgramTokenVaultOwner = web3.PublicKey.findProgramAddressSync(
         [Buffer.from("vault_owner")], // This should match VAULT_OWNER_SEED in mushi_stake_vault
         mainState.stakeVaultProgram
       )[0];
@@ -1121,12 +1130,6 @@ export class MushiProgramRpc {
         baseTokenProgram
       );
       
-      const userEclipseTokenAta = getAssociatedTokenAddressSync(
-        eclipseTokenMint,
-        user,
-        false, // Set to false for regular user accounts
-        quoteTokenProgram
-      );
       
       // For user_stake_token_ata, the Rust code expects it to be initialized
       // with the init constraint, not init_if_needed
@@ -1147,18 +1150,25 @@ export class MushiProgramRpc {
       // Get token vaults
       const mushiTokenVault = getAssociatedTokenAddressSync(
         mushiTokenMint,
-        tokenVaultOwner,
+        stakingProgramTokenVaultOwner,
         true, // This should be true for PDAs
         baseTokenProgram
       );
       
-      const eclipseTokenVault = getAssociatedTokenAddressSync(
+      const eclipseTokenStakingProgramVault = getAssociatedTokenAddressSync(
         eclipseTokenMint,
-        tokenVaultOwner,
+        stakingProgramTokenVaultOwner,
         true, // This should be true for PDAs
         quoteTokenProgram
       );
-      
+
+      const eclipseTokenMushiProgramVault = getAssociatedTokenAddressSync(
+        eclipseTokenMint,
+        this.vaultOwner,
+        true, // This should be true for PDAs
+        quoteTokenProgram
+      );
+
       const instructionSysvar = web3.SYSVAR_INSTRUCTIONS_PUBKEY;
       // Create the stake instruction
       const ix = await this.program.methods
@@ -1170,14 +1180,15 @@ export class MushiProgramRpc {
           globalState: this.globalState,
           mainState: this.mainState,
           userMushiTokenAta,
-          userEclipseTokenAta,
           userStakeTokenAta,
           mushiTokenVault,
           mushiTokenMint,
-          eclipseTokenVault,
+          eclipseTokenStakingProgramVault,
+          eclipseTokenMushiProgramVault,
           eclipseTokenMint,
           stakeTokenMint,
-          tokenVaultOwner,
+          stakingProgramTokenVaultOwner,
+          mushiProgramTokenVaultOwner: this.vaultOwner,
           stakeVaultProgram: mainState.stakeVaultProgram,
           tokenProgram: baseTokenProgram,
           token2022Program: quoteTokenProgram,

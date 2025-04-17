@@ -53,6 +53,7 @@ pub struct GlobalStats {
     pub last_liquidation_date: i64,
     pub total_borrowed: u64,
     pub total_collateral: u64,
+    pub total_eclipse_token_staked: u64,
     pub token_supply: u64,
     pub last_price: u64,
     pub base_token: Pubkey,

@@ -16,7 +16,7 @@ cpi = ["no-entrypoint"]
 default = []
 
 [dependencies]
-mushi_stake_vault = {git = "https://github.com/piscesyuma/mushi-stake-vault.git", branch="feat/cpi-interaction", features=["cpi"]}
+mushi_stake_vault = {git = "https://github.com/piscesyuma/mushi-stake-vault.git", branch="develop", features=["cpi"]}
 anchor-lang = { version="0.28.0", features = ["init-if-needed"] }
 anchor-spl = "0.28.0"
 ahash = "=0.8.6"

@@ -148,7 +148,7 @@ impl<'info> ACommon<'info> {
     }
 
     pub fn get_backing(&self, es_amount: u64) -> Result<u64> {
-        Ok(self.global_state.total_borrowed + self.quote_vault.amount + es_amount)
+        Ok(self.global_state.total_borrowed + self.quote_vault.amount + es_amount + self.global_state.total_eclipse_token_staked)
     }
     pub fn eclipse_to_mushi(&self, es_amount: u64) -> Result<u64>{
         Ok(

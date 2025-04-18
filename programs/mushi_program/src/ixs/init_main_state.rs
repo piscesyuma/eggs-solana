@@ -20,6 +20,7 @@ pub fn init_main_state(ctx: Context<AInitializeState>, input: InitializeInput) -
     main_state.sell_fee = input.sell_fee;
     main_state.buy_fee = input.buy_fee;
     main_state.buy_fee_leverage = input.buy_fee_leverage;
+    main_state.stake_enabled = false;
 
     // global state
     let global_state = &mut ctx.accounts.global_state;

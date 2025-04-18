@@ -15,6 +15,7 @@ pub struct MainState {
     pub quote_token: Pubkey,
     pub stake_token: Pubkey,
     pub stake_vault_program: Pubkey,
+    pub stake_enabled: bool,
 }
 
 impl MainState {

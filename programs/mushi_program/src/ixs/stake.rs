@@ -15,6 +15,8 @@ use crate::state::{GlobalStats, MainState};
 use crate::utils::transfer_tokens_checked;
 
 pub fn stake(ctx: Context<Stake>, amount: u64) -> Result<()> {
+    require!(ctx.accounts.main_state.stake_enabled, MushiProgramError::StakeNotEnabled);
+    
     let global_state = &mut ctx.accounts.global_state;
 
     let signer_seeds: &[&[&[u8]]] =

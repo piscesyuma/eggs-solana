@@ -14,6 +14,8 @@ use crate::error::MushiProgramError;
 use crate::state::{GlobalStats, MainState};
 
 pub fn unstake(ctx: Context<Unstake>, amount: u64) -> Result<()> {
+    require!(ctx.accounts.main_state.stake_enabled, MushiProgramError::StakeNotEnabled);
+    
     let cpi_ctx = CpiContext::new(
         ctx.accounts.stake_vault_program.to_account_info(),
         VaultUnstakeCpi {

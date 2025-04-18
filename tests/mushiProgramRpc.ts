@@ -432,6 +432,7 @@ export class MushiProgramRpc {
     buyFeeLeverage?: number;
     stakeToken?: web3.PublicKey;
     stakeVaultProgram?: web3.PublicKey;
+    stakeEnabled?: boolean;
   }): Promise<SendTxResult> {
     try {
       const admin = this.provider.publicKey;
@@ -445,7 +446,8 @@ export class MushiProgramRpc {
           buyFee: null,
           buyFeeLeverage: null,
           stakeToken: input.stakeToken ?? null,
-          stakeVaultProgram: input.stakeVaultProgram ?? null
+          stakeVaultProgram: input.stakeVaultProgram ?? null,
+          stakeEnabled: input.stakeEnabled ?? null,
         })
         .accounts({ admin, mainState: this.mainState, stakeToken: input.stakeToken })
         .instruction();

@@ -12,6 +12,7 @@ pub struct UpdateMainStateInput {
     buy_fee_leverage: Option<u64>,
     stake_token: Option<Pubkey>,
     stake_vault_program: Option<Pubkey>,
+    stake_enabled: Option<bool>,
 }
 
 pub fn update_main_state(
@@ -27,6 +28,9 @@ pub fn update_main_state(
 
     let stake_vault_program = input.stake_vault_program.unwrap_or(state.stake_vault_program);
     state.stake_vault_program = stake_vault_program;
+
+    let stake_enabled = input.stake_enabled.unwrap_or(state.stake_enabled);
+    state.stake_enabled = stake_enabled;
 
     let buy_fee = input.buy_fee.unwrap_or(state.buy_fee);
 

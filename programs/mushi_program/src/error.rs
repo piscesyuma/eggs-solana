@@ -61,4 +61,7 @@ pub enum MushiProgramError {
 
     #[msg("invalid referral account")]
     InvalidReferralAccount,
+
+    #[msg("stake is not enabled")]
+    StakeNotEnabled,
 }

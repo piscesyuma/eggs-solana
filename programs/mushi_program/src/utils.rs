@@ -1,6 +1,6 @@
 use crate::state::DailyStats;
 use crate::{
-    constants::{FEES_BUY, LAMPORTS_PER_SOL, SECONDS_IN_A_DAY, VAULT_SEED},
+    constants::{FEES_BUY, SECONDS_IN_A_DAY, VAULT_SEED},
     error::MushiProgramError,
     state::{GlobalStats, MainState},
 };

@@ -37,7 +37,7 @@ pub fn buy(ctx: Context<ACommon>, es_amount: u64) -> Result<()> {
     )?;
     global_state.token_supply += mushi * ctx.accounts.main_state.buy_fee / FEE_BASE_1000;
 
-    // calc sender SOLs
+    // calc sender Eclipses
     let fee: u64 = es_amount
         .checked_mul(FEES_BUY + FEES_BUY_REFERRAL)
         .unwrap()
@@ -117,7 +117,7 @@ pub fn buy_with_referral(
     )?;
     global_state.token_supply += mushi * ctx.accounts.common.main_state.buy_fee / FEE_BASE_1000;
 
-    // calc sender SOLs
+    // calc sender Eclipses
 
     let fee_treasury: u64 = es_amount
         .checked_mul(FEES_BUY)
@@ -206,19 +206,19 @@ pub fn sell(ctx: Context<ACommon>, token_amount: u64) -> Result<()> {
     )?;
 
     global_state.token_supply -= token_amount;
-    // calc & sending sol
+    // calc & sending eclipses
     let system_program = ctx.accounts.system_program.to_account_info();
     let vault_owner = ctx.accounts.token_vault_owner.to_account_info();
     let signer_seeds: &[&[&[u8]]] =
         &[&[VAULT_SEED, &[*ctx.bumps.get("token_vault_owner").unwrap()]]];
 
-    let sol_fee_amount = es_amount
+    let eclipse_fee_amount = es_amount
         .checked_mul(FEES_SELL)
         .unwrap()
         .checked_div(10_000)
         .unwrap();
 
-    require!(sol_fee_amount > MIN, MushiProgramError::TooSmallInputAmount);
+    require!(eclipse_fee_amount > MIN, MushiProgramError::TooSmallInputAmount);
 
     {
         // sending quote tokens
@@ -249,7 +249,7 @@ pub fn sell(ctx: Context<ACommon>, token_amount: u64) -> Result<()> {
             authority.clone(),
             mint.clone(),
             token_program.clone(),
-            sol_fee_amount,
+            eclipse_fee_amount,
             decimals,
             Some(signer_seeds),
         )?;

@@ -13,8 +13,8 @@ use crate::context::common::ACommon;
 pub fn repay(ctx:Context<ACommonExtSubLoan>, es_amount: u64)->Result<()>{
     let user_loan = & ctx.accounts.common.user_loan;
     let borrowed = user_loan.borrowed;
-    require!(borrowed > es_amount, MushiProgramError::InvalidSolAmount);
-    require!(es_amount != 0, MushiProgramError::InvalidSolAmount);
+    require!(borrowed > es_amount, MushiProgramError::InvalidEclipseAmount);
+    require!(es_amount != 0, MushiProgramError::InvalidEclipseAmount);
 
     let quote_mint = ctx.accounts.common.quote_mint.to_account_info();
     let quote_token_program = ctx.accounts.common.quote_token_program.to_account_info();

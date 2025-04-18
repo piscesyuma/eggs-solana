@@ -13,11 +13,7 @@ use mpl_token_metadata::{
 };
 
 use crate::{
-    constants::{LAMPORTS_PER_SOL, MIN, SECONDS_IN_A_DAY, VAULT_SEED},
-    error::MushiProgramError,
-    program::MushiProgram,
-    utils::{burn_tokens, mint_to_tokens_by_main_state, transfer_tokens_checked},
-    MainState, GlobalStats,
+    constants::{LAMPORTS_PER_ECLIPSE, MIN_INITIALIZE_RATIO, SECONDS_IN_A_DAY, VAULT_SEED}, error::MushiProgramError, program::MushiProgram, utils::{burn_tokens, mint_to_tokens_by_main_state, transfer_tokens_checked}, GlobalStats, MainState
 };
 
 #[derive(AnchorSerialize, AnchorDeserialize, Debug, Clone)]
@@ -34,8 +30,8 @@ pub fn start(ctx: Context<AStart>, input: StartInput) -> Result<()> {
     let mushi_mint = ctx.accounts.base_token.to_account_info();
     let admin = ctx.accounts.admin.to_account_info();
     //checks
-    let team_mint_amount = input.es_amount * MIN;
-    require!(team_mint_amount >= LAMPORTS_PER_SOL, MushiProgramError::InvalidInput);
+    let team_mint_amount = input.es_amount * MIN_INITIALIZE_RATIO;
+    require!(team_mint_amount >= LAMPORTS_PER_ECLIPSE, MushiProgramError::InvalidInput);
     
     
     let token_vault = ctx.accounts.token_vault.to_account_info();
@@ -56,7 +52,7 @@ pub fn start(ctx: Context<AStart>, input: StartInput) -> Result<()> {
         mushi_mint.to_account_info(),
         ctx.accounts.token_vault_owner.to_account_info(),
         mushi_token_program.to_account_info(),
-        1 * LAMPORTS_PER_SOL,
+        1 * LAMPORTS_PER_ECLIPSE,
         Some(&[&[VAULT_SEED, &[*ctx.bumps.get("token_vault_owner").unwrap()]]]),
     )?;
     global_state.token_supply = team_mint_amount;
@@ -172,6 +168,7 @@ pub struct AStart<'info> {
         mint::token_program = base_token_program,
     )]
     pub base_token: Box<InterfaceAccount<'info, token_interface::Mint>>,
+
     ///CHECK:
     #[account(
         mut,

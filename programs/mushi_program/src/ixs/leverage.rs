@@ -14,7 +14,7 @@ pub fn leverage(ctx:Context<ACommonExtLoan>, number_of_days: u64, es_amount:u64)
     let is_started = ctx.accounts.common.global_state.started;
     require!(is_started, MushiProgramError::NotStarted);
     require!(number_of_days < 366, MushiProgramError::InvalidNumberOfDays);
-    require!(es_amount != 0, MushiProgramError::InvalidSolAmount);
+    require!(es_amount != 0, MushiProgramError::InvalidEclipseAmount);
     
     let is_expired = ctx.accounts.common.is_loan_expired()?;
     
@@ -30,7 +30,7 @@ pub fn leverage(ctx:Context<ACommonExtLoan>, number_of_days: u64, es_amount:u64)
     require!(ctx.accounts.common.user_loan.borrowed == 0, MushiProgramError::InvalidLoanAmount);
     
     // Extract values before further operations to avoid multiple borrows
-    let sol_fee = ctx.accounts.common.leverage_fee(es_amount, number_of_days)?;
+    let eclipse_fee = ctx.accounts.common.leverage_fee(es_amount, number_of_days)?;
     let bump = *ctx.bumps.get("token_vault_owner").unwrap();
     let main_state_bump = *ctx.bumps.get("main_state").unwrap();
     
@@ -47,16 +47,16 @@ pub fn leverage(ctx:Context<ACommonExtLoan>, number_of_days: u64, es_amount:u64)
     
     let current_timestamp = Clock::get()?.unix_timestamp;
     let end_date = get_midnight_timestamp(current_timestamp + number_of_days as i64 * SECONDS_IN_A_DAY);
-    let user_sol = es_amount.checked_sub(sol_fee).unwrap();
+    let user_eclipse = es_amount.checked_sub(eclipse_fee).unwrap();
 
-    let fee_address_amount = sol_fee.checked_mul(3).unwrap().checked_div(10).unwrap();
-    let user_borrow = user_sol.checked_mul(99).unwrap().checked_div(100).unwrap();
-    let over_collateralization_amount = user_sol/100;
+    let fee_address_amount = eclipse_fee.checked_mul(3).unwrap().checked_div(10).unwrap();
+    let user_borrow = user_eclipse.checked_mul(99).unwrap().checked_div(100).unwrap();
+    let over_collateralization_amount = user_eclipse/100;
     let sub_value = fee_address_amount.checked_add(over_collateralization_amount).unwrap();
-    let total_fee = sol_fee.checked_add(over_collateralization_amount).unwrap();
+    let total_fee = eclipse_fee.checked_add(over_collateralization_amount).unwrap();
 
     // Calculate user_mushi before borrowing ctx.accounts mutably again
-    let user_mushi = ctx.accounts.common.eclipse_to_mushi_lev(user_sol, sub_value, es_amount)?;
+    let user_mushi = ctx.accounts.common.eclipse_to_mushi_lev(user_eclipse, sub_value, es_amount)?;
     
     // Mint tokens
     mint_to_tokens_by_main_state(

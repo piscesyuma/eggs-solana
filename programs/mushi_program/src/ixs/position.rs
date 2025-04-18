@@ -70,7 +70,7 @@ pub fn flash_close_position(ctx:Context<ACommonExtSubLoan>)->Result<()>{
     let borrowed = user_loan.borrowed;
     let collateral = user_loan.collateral;
 
-    let collateral_in_sol = ctx.accounts.common.mushi_to_eclipse(collateral)?;
+    let collateral_in_eclipse = ctx.accounts.common.mushi_to_eclipse(collateral)?;
     let signer_seeds:&[&[&[u8]]] = &[&[VAULT_SEED, &[*ctx.bumps.get("token_vault_owner").unwrap()]]];
     burn_tokens(
         ctx.accounts.common.token_vault.to_account_info(),
@@ -82,12 +82,12 @@ pub fn flash_close_position(ctx:Context<ACommonExtSubLoan>)->Result<()>{
     )?;
     ctx.accounts.common.global_state.token_supply = ctx.accounts.common.global_state.token_supply.checked_sub(collateral).unwrap();
     
-    let collateral_in_sonic_after_fee = collateral_in_sol.checked_mul(99).unwrap().checked_div(100).unwrap();
-    let fee = collateral_in_sol / 100;
+    let collateral_in_eclipse_after_fee = collateral_in_eclipse.checked_mul(99).unwrap().checked_div(100).unwrap();
+    let fee = collateral_in_eclipse / 100;
 
-    require!(collateral_in_sonic_after_fee >= borrowed, MushiProgramError::InvalidCollateralAmount);
+    require!(collateral_in_eclipse_after_fee >= borrowed, MushiProgramError::InvalidCollateralAmount);
     
-    let to_user = collateral_in_sonic_after_fee.checked_sub(borrowed).unwrap();
+    let to_user = collateral_in_eclipse_after_fee.checked_sub(borrowed).unwrap();
     let fee_address_fee = fee.checked_mul(3).unwrap().checked_div(10).unwrap();
 
     require!(fee_address_fee > MIN, MushiProgramError::InvalidFeeAmount);

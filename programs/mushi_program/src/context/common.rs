@@ -2,7 +2,7 @@ use anchor_lang::prelude::*;
 use anchor_spl::{associated_token::AssociatedToken, token_interface};
 
 use crate::{
-    constants::{FEE_BASE_1000, LAMPORTS_PER_SOL, SECONDS_IN_A_DAY, VAULT_SEED}, error::MushiProgramError, state::{GlobalStats, MainState, UserLoan}, utils::{get_date_from_timestamp, get_date_string_from_timestamp, get_interest_fee}, DailyStats 
+    constants::{FEE_BASE_1000, LAMPORTS_PER_ECLIPSE, SECONDS_IN_A_DAY, VAULT_SEED}, error::MushiProgramError, state::{GlobalStats, MainState, UserLoan}, utils::{get_date_from_timestamp, get_date_string_from_timestamp, get_interest_fee}, DailyStats 
 };
 
 #[derive(Accounts)]
@@ -193,7 +193,7 @@ impl<'info> ACommon<'info> {
             backing = backing.checked_sub(es_amount).unwrap();
         }
 
-        let new_price: u64 = (backing as u128).checked_mul(LAMPORTS_PER_SOL as u128).unwrap()
+        let new_price: u64 = (backing as u128).checked_mul(LAMPORTS_PER_ECLIPSE as u128).unwrap()
         .checked_div(self.global_state.token_supply as u128).unwrap() as u64;
         let _total_collateral = self.token_vault.amount;
 

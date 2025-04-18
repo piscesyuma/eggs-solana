@@ -16,7 +16,7 @@ pub fn borrow(ctx:Context<ACommonExtLoan>, number_of_days: u64, es_amount:u64)->
     let user_loan = &mut ctx.accounts.common.user_loan;
     
     require!(number_of_days < 366, MushiProgramError::InvalidNumberOfDays);
-    require!(es_amount != 0, MushiProgramError::InvalidSolAmount);
+    require!(es_amount != 0, MushiProgramError::InvalidEclipseAmount);
 
     if is_expired {
         user_loan.borrowed = 0;
@@ -40,9 +40,9 @@ pub fn borrow(ctx:Context<ACommonExtLoan>, number_of_days: u64, es_amount:u64)->
 
     let current_timestamp = Clock::get()?.unix_timestamp;
     let end_date = get_midnight_timestamp(current_timestamp + number_of_days as i64 * SECONDS_IN_A_DAY);
-    let sol_fee = get_interest_fee(es_amount, number_of_days);
-    let fee_address_fee = sol_fee.checked_mul(3).unwrap().checked_div(10).unwrap();
-    // AUDIT: eggs required from user round up?
+    let eclipse_fee = get_interest_fee(es_amount, number_of_days);
+    let fee_address_fee = eclipse_fee.checked_mul(3).unwrap().checked_div(10).unwrap();
+    // AUDIT: mushi required from user round up?
     let new_user_borrow = es_amount.checked_mul(99).unwrap().checked_div(100).unwrap();
     
     user_loan.collateral = user_mushi;
@@ -73,7 +73,7 @@ pub fn borrow(ctx:Context<ACommonExtLoan>, number_of_days: u64, es_amount:u64)->
         authority.clone(),
         quote_mint.clone(),
         quote_token_program.clone(),
-        new_user_borrow - sol_fee, 
+        new_user_borrow - eclipse_fee, 
         decimals,
         Some(&[&[VAULT_SEED, &[token_vault_owner_bump]]]),
     )?;
@@ -92,14 +92,14 @@ pub fn borrow(ctx:Context<ACommonExtLoan>, number_of_days: u64, es_amount:u64)->
     // ctx.accounts.add_loans_by_date( new_user_borrow, user_mushi)?;
     add_loans_by_date(&mut ctx.accounts.common.global_state, &mut ctx.accounts.daily_state_end_date, new_user_borrow, user_mushi)?;
 
-    ctx.accounts.common.safety_check(new_user_borrow - sol_fee + fee_address_fee, false)?;
+    ctx.accounts.common.safety_check(new_user_borrow - eclipse_fee + fee_address_fee, false)?;
     Ok(())
 }
 
 pub fn borrow_more(ctx:Context<ACommonExtSubLoan>, es_amount:u64)->Result<()>{
     let is_expired = ctx.accounts.common.is_loan_expired()?;
     require!(!is_expired, MushiProgramError::LoanExpired);
-    require!(es_amount != 0, MushiProgramError::InvalidSolAmount);
+    require!(es_amount != 0, MushiProgramError::InvalidEclipseAmount);
 
     let user_mushi = ctx.accounts.common.eclipse_to_mushi_no_trade_ceil(es_amount)?;
     let user_loan = & ctx.accounts.common.user_loan;
@@ -120,9 +120,9 @@ pub fn borrow_more(ctx:Context<ACommonExtSubLoan>, es_amount:u64)->Result<()>{
 
     let today_midnight = get_midnight_timestamp(Clock::get()?.unix_timestamp);
     let new_borrow_length = (user_end_date - today_midnight) / SECONDS_IN_A_DAY;
-    let sol_fee = get_interest_fee(es_amount, new_borrow_length as u64);
+    let eclipse_fee = get_interest_fee(es_amount, new_borrow_length as u64);
 
-    let fee_address_fee = sol_fee.checked_mul(3).unwrap().checked_div(10).unwrap();
+    let fee_address_fee = eclipse_fee.checked_mul(3).unwrap().checked_div(10).unwrap();
     let new_user_borrow = es_amount.checked_mul(99).unwrap().checked_div(100).unwrap();
     let user_borrowed_in_mushi = ctx.accounts.common.eclipse_to_mushi_no_trade(user_borrowed)?;
     let user_excess_in_mushi = user_collateral.checked_mul(99).unwrap().checked_div(100).unwrap().checked_sub(user_borrowed_in_mushi).unwrap();
@@ -171,7 +171,7 @@ pub fn borrow_more(ctx:Context<ACommonExtSubLoan>, es_amount:u64)->Result<()>{
         authority.clone(),
         quote_mint.clone(),
         quote_token_program.clone(),
-        new_user_borrow - sol_fee, 
+        new_user_borrow - eclipse_fee, 
         decimals,
         Some(&[&[VAULT_SEED, &[token_vault_owner_bump]]]),
     )?;
@@ -189,6 +189,6 @@ pub fn borrow_more(ctx:Context<ACommonExtSubLoan>, es_amount:u64)->Result<()>{
 
     add_loans_by_date(&mut ctx.accounts.common.global_state, &mut ctx.accounts.daily_state_old_end_date, new_user_borrow, user_mushi)?;
 
-    ctx.accounts.common.safety_check(new_user_borrow - sol_fee + fee_address_fee, false)?;
+    ctx.accounts.common.safety_check(new_user_borrow - eclipse_fee + fee_address_fee, false)?;
     Ok(())
 }

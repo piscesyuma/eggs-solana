@@ -21,10 +21,10 @@ pub enum MushiProgramError {
     #[msg("leverage buy fee must be less 2.5%")]
     InvalidBuyFeeLeverage,
 
-    #[msg("The eggs balance of the contract must be greater than or equal to the collateral")]
+    #[msg("The mushi balance of the contract must be greater than or equal to the collateral")]
     SafetyCheckCollateralFailed,
     
-    #[msg("The price of eggs cannot decrease")]
+    #[msg("The price of mushi cannot decrease")]
     SafetyCheckPriceFailed,
 
     #[msg("invalid number of days")]
@@ -36,6 +36,9 @@ pub enum MushiProgramError {
     #[msg("invalid sol amount")]
     InvalidSolAmount,
     
+    #[msg("invalid eclipse amount")]
+    InvalidEclipseAmount,
+
     #[msg("invalid loan amount")]
     InvalidLoanAmount,
 

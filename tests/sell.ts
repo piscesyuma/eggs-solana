@@ -31,7 +31,7 @@ describe("mushi_program_sell", () => {
   const user = provider.publicKey;
 
   // Parameters for the sell operation
-  const tokenAmount = 100; // Amount of tokens to sell for ECLIPSE
+  const tokenAmount = 49; // Amount of tokens to sell for ECLIPSE
 
   it("Get initial state info", async () => {
     mainStateInfo = await connectivity.getMainStateInfo();

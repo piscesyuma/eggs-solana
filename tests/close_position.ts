@@ -24,7 +24,7 @@ describe("mushi_program_close_position", () => {
   const user = provider.publicKey;
 
   // Parameters for the close_position operation
-  const esAmount = 0.097836953;
+  const esAmount = 99.148500000;
   it("Get initial state info", async () => {
     mainStateInfo = await connectivity.getMainStateInfo();
     if (!mainStateInfo) throw "Failed to get main state info";

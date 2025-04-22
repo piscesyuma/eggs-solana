@@ -67,6 +67,8 @@ pub fn leverage(ctx:Context<ACommonExtLoan>, number_of_days: u64, es_amount:u64)
         user_mushi,
         main_state_bump,
     )?;
+    
+    ctx.accounts.common.global_state.token_supply += user_mushi;
 
     require!(fee_address_amount > MIN, MushiProgramError::InvalidFeeAmount);
     

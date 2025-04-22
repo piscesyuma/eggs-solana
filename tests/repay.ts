@@ -24,7 +24,7 @@ describe("mushi_program_repay", () => {
   const user = provider.publicKey;
 
   // Parameters for the repay operation
-  const esAmount = 0.05; // Amount of ECLIPSE to repay (should be <= borrowed amount)
+  const esAmount = 2; // Amount of ECLIPSE to repay (should be <= borrowed amount)
 
   it("Get initial state info", async () => {
     mainStateInfo = await connectivity.getMainStateInfo();

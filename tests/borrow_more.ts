@@ -24,7 +24,7 @@ describe("mushi_program_borrow_more", () => {
   const user = provider.publicKey;
 
   // Parameters for the borrow more operation
-  const additionalEclipseAmount = 100; // Additional ECLIPSE amount to borrow
+  const additionalEclipseAmount = 90; // Additional ECLIPSE amount to borrow
 
   it("Get initial state info", async () => {
     mainStateInfo = await connectivity.getMainStateInfo();

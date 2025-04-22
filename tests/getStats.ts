@@ -38,9 +38,9 @@ describe("mushi_program_getStats", () => {
 
     if (!globalInfo) throw "Failed to get global state info";
 
-    // userLoanInfo = await connectivity.getUserLoanInfo(user);
-    // if (!userLoanInfo) throw "Failed to get user loan info";
-    // log({ userLoanInfo });
+    userLoanInfo = await connectivity.getUserLoanInfo(user);
+    if (!userLoanInfo) throw "Failed to get user loan info";
+    log({ userLoanInfo });
 
     // Check if the protocol has been started
     if (!globalInfo.started) {

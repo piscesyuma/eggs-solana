@@ -6,6 +6,7 @@
     "dependencies": {
         "@coral-xyz/anchor": "^0.29.0",
         "@solana/spl-token": "^0.4.13",
+        "bs58": "^6.0.0",
         "dotenv": "^16.4.7"
     },
     "devDependencies": {

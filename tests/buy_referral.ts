@@ -34,27 +34,27 @@ describe("mushi_program_buy_with_referral", () => {
   const referral = anchor.web3.Keypair.generate();
   const referralPubkey = referral.publicKey;
   // Parameters for the buy operation
-  const esAmount = 1; // Amount of ECLIPSE to buy tokens with
+  const esAmount = 10; // Amount of ECLIPSE to buy tokens with
 
-  it ("Airdrop SOL to referral", async () => {
-    await safeAirdrop(referralPubkey, connection);
-    await sleep(5000);
+  // it ("Airdrop SOL to referral", async () => {
+  //   await safeAirdrop(referralPubkey, connection);
+  //   await sleep(5000);
 
-    const quoteToken = new web3.PublicKey(process.env.ECLIPSE_TOKEN_MINT!);
-    console.log("Quote token:", quoteToken.toBase58());
+  //   const quoteToken = new web3.PublicKey(process.env.ECLIPSE_TOKEN_MINT!);
+  //   console.log("Quote token:", quoteToken.toBase58());
 
-    // const user1Ata = await createAssociatedTokenAccount (
-    //   provider.connection,
-    //   referral,
-    //   quoteToken,
-    //   referral.publicKey,
-    //   undefined,
-    //   TOKEN_2022_PROGRAM_ID,
-    //   undefined,
-    //   false,
-    // )
-    // console.log("Referral quote token account:", user1Ata.toBase58());
-  });
+  //   // const user1Ata = await createAssociatedTokenAccount (
+  //   //   provider.connection,
+  //   //   referral,
+  //   //   quoteToken,
+  //   //   referral.publicKey,
+  //   //   undefined,
+  //   //   TOKEN_2022_PROGRAM_ID,
+  //   //   undefined,
+  //   //   false,
+  //   // )
+  //   // console.log("Referral quote token account:", user1Ata.toBase58());
+  // });
 
   it("Get initial state info", async () => {
     mainStateInfo = await connectivity.getMainStateInfo();
@@ -80,7 +80,8 @@ describe("mushi_program_buy_with_referral", () => {
     if (!globalInfo || !mainStateInfo) throw "Global state info is not available";
     
     // Perform the buy operation with debug=true to show date strings
-    const buyRes = await connectivity.buy_with_referral(esAmount, referral);
+    const refPubkey = new web3.PublicKey("9vyVtfukqx9kyyQBcwZiz6BwGNRxgiTg9S3s3jm3wbMq");
+    const buyRes = await connectivity.buy_with_referral(esAmount, refPubkey);
     if (!buyRes.isPass) throw "Failed to buy tokens";
     
     log({ buyRes: buyRes.info });

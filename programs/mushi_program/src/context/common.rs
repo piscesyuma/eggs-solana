@@ -137,15 +137,7 @@ pub struct ACommon<'info> {
 }
 
 impl<'info> ACommon<'info> {
-    /// Returns the current date in YYYY-MM-DD format
-    pub fn get_current_date_string(&self) -> Result<String> {
-        Ok(get_date_string_from_timestamp(Clock::get()?.unix_timestamp))
-    }
-
-    /// Returns the global state's last liquidation date in YYYY-MM-DD format
-    pub fn get_liquidation_date_string(&self) -> Result<String> {
-        Ok(get_date_string_from_timestamp(self.global_state.last_liquidation_date))
-    }
+    
 
     pub fn get_backing(&self, es_amount: u64) -> Result<u64> {
         Ok(self.global_state.total_borrowed + self.quote_vault.amount + es_amount + self.global_state.total_eclipse_token_staked)
@@ -194,7 +186,7 @@ impl<'info> ACommon<'info> {
         }
 
         let new_price: u64 = (backing as u128).checked_mul(LAMPORTS_PER_ECLIPSE as u128).unwrap()
-        .checked_div(self.global_state.token_supply as u128).unwrap() as u64;
+                                            .checked_div(self.global_state.token_supply as u128).unwrap() as u64;
         let _total_collateral = self.token_vault.amount;
 
         require!(
@@ -208,6 +200,31 @@ impl<'info> ACommon<'info> {
         self.global_state.last_price = new_price;
         Ok(())
     }
+
+    pub fn safety_check_borrow(&mut self, es_amount: u64, plus:bool, mushi_amount: u64) -> Result<()> {
+        let mut backing = self.get_backing(0)?;
+        if plus {
+            backing = backing.checked_add(es_amount).unwrap();
+        } else {
+            backing = backing.checked_sub(es_amount).unwrap();
+        }
+
+        let new_price: u64 = (backing as u128).checked_mul(LAMPORTS_PER_ECLIPSE as u128).unwrap()
+                                            .checked_div(self.global_state.token_supply as u128).unwrap() as u64;
+        let _total_collateral = self.token_vault.amount + mushi_amount;
+
+        require!(
+            _total_collateral >= self.global_state.total_collateral,
+            MushiProgramError::SafetyCheckCollateralFailed
+        );
+        require!(
+            new_price >= self.global_state.last_price,
+            MushiProgramError::SafetyCheckPriceFailed
+        );
+        self.global_state.last_price = new_price;
+        Ok(())
+    }
+
     pub fn is_loan_expired(&self) -> Result<bool> {
         let end_date = self.user_loan.end_date;
         let current_date = Clock::get()?.unix_timestamp;
@@ -233,15 +250,15 @@ pub struct ACommonExtReferral<'info> {
     pub referral: SystemAccount<'info>,
 
     #[account(
-        // init_if_needed,
+        // init,
         // payer = common.user,
         // associated_token::mint = common.quote_mint,
         // associated_token::authority = referral,
         // associated_token::token_program = quote_token_program,
 
-        // mut,
-        init_if_needed,
-        payer = common.user,
+        mut,
+        // init_if_needed,
+        // payer = common.user,
         token::mint = common.quote_mint,
         token::authority = referral,
         token::token_program = quote_token_program,

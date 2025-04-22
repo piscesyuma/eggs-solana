@@ -7,6 +7,7 @@ import {
   createAssociatedTokenAccountInstruction,
   getAssociatedTokenAddress,
   getAssociatedTokenAddressSync,
+  getOrCreateAssociatedTokenAccount,
   TOKEN_2022_PROGRAM_ID,
   TOKEN_PROGRAM_ID,
 } from "@solana/spl-token";
@@ -440,7 +441,7 @@ export class MushiProgramRpc {
       const newAdmin = input.admin ?? null;
       const ix = await this.program.methods
         .updateMainState({ 
-          feeReceiver: null,
+          feeReceiver: feeReceiver,
           admin: null,
           sellFee: null,
           buyFee: null,
@@ -571,7 +572,7 @@ export class MushiProgramRpc {
 
   async buy_with_referral(
     esAmount: number,
-    referral: web3.Keypair
+    referralPubkey: web3.PublicKey
   ): Promise<SendTxResult> {
     try {
 
@@ -580,20 +581,24 @@ export class MushiProgramRpc {
       if (!mainStateInfo) throw "Failed to get main state info";
       const { quoteToken } = mainStateInfo;
 
-      let referralQuoteAta = await getAssociatedTokenAddress(
+      const referralQuoteAta = await getAssociatedTokenAddress(
         quoteToken,           // quote mint pubkey
-        referral.publicKey,     // referral account pubkey
-        true,                // allowOwnerOffCurve = false
+        referralPubkey,     // referral account pubkey
+        false,                // allowOwnerOffCurve = false
         quoteTokenProgram
       );
 
-      console.log("Referral public key:", referral.publicKey.toBase58());
+      // const referralQuoteAta = await getOrCreateAssociatedTokenAccount(
+      //   this.connection,
+      //   this.provider.wallet,
+      //   quoteToken,
+      //   referralPubkey
+      // );
+      console.log("Referral public key:", referralPubkey.toBase58());
       console.log("Quote token:", quoteToken.toBase58());
       console.log("Quote token program:", quoteTokenProgram.toBase58());
       console.log("Derived ATA:", referralQuoteAta.toBase58());
 
-      const referralPubkey = referral.publicKey;
-      
       const baseCommonContext = await this.getBaseCommonContext();
       const ix = await this.program.methods
         .buyWithReferral(

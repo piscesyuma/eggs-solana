@@ -310,3 +310,12 @@ pub fn sub_loans_by_date(
     Ok(())
 }
 
+/// Returns the current date in YYYY-MM-DD format
+pub fn get_current_date_string() -> Result<String> {
+    Ok(get_date_string_from_timestamp(Clock::get()?.unix_timestamp))
+}
+
+/// Returns the global state's last liquidation date in YYYY-MM-DD format
+pub fn get_liquidation_date_string(last_liquidation_date: i64) -> Result<String> {
+    Ok(get_date_string_from_timestamp(last_liquidation_date))
+}

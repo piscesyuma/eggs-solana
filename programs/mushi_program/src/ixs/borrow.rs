@@ -17,6 +17,7 @@ pub fn borrow(ctx:Context<ACommonExtLoan>, number_of_days: u64, es_amount:u64)->
     
     require!(number_of_days < 366, MushiProgramError::InvalidNumberOfDays);
     require!(es_amount != 0, MushiProgramError::InvalidEclipseAmount);
+    require!(es_amount <= ctx.accounts.common.quote_vault.amount, MushiProgramError::InsufficientEclipseAmountOnVault);
 
     if is_expired {
         user_loan.borrowed = 0;
@@ -92,7 +93,7 @@ pub fn borrow(ctx:Context<ACommonExtLoan>, number_of_days: u64, es_amount:u64)->
     // ctx.accounts.add_loans_by_date( new_user_borrow, user_mushi)?;
     add_loans_by_date(&mut ctx.accounts.common.global_state, &mut ctx.accounts.daily_state_end_date, new_user_borrow, user_mushi)?;
 
-    ctx.accounts.common.safety_check(new_user_borrow - eclipse_fee + fee_address_fee, false)?;
+    ctx.accounts.common.safety_check_borrow(new_user_borrow - eclipse_fee + fee_address_fee, false, user_mushi)?;
     Ok(())
 }
 
@@ -100,7 +101,8 @@ pub fn borrow_more(ctx:Context<ACommonExtSubLoan>, es_amount:u64)->Result<()>{
     let is_expired = ctx.accounts.common.is_loan_expired()?;
     require!(!is_expired, MushiProgramError::LoanExpired);
     require!(es_amount != 0, MushiProgramError::InvalidEclipseAmount);
-
+    require!(es_amount <= ctx.accounts.common.quote_vault.amount, MushiProgramError::InsufficientEclipseAmountOnVault);
+    
     let user_mushi = ctx.accounts.common.eclipse_to_mushi_no_trade_ceil(es_amount)?;
     let user_loan = & ctx.accounts.common.user_loan;
  
@@ -189,6 +191,6 @@ pub fn borrow_more(ctx:Context<ACommonExtSubLoan>, es_amount:u64)->Result<()>{
 
     add_loans_by_date(&mut ctx.accounts.common.global_state, &mut ctx.accounts.daily_state_old_end_date, new_user_borrow, user_mushi)?;
 
-    ctx.accounts.common.safety_check(new_user_borrow - eclipse_fee + fee_address_fee, false)?;
+    ctx.accounts.common.safety_check_borrow(new_user_borrow - eclipse_fee + fee_address_fee, false, require_collateral_from_user)?;
     Ok(())
 }

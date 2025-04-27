@@ -42,6 +42,9 @@ pub enum MushiProgramError {
     #[msg("insufficient eclipse amount on vault")]
     InsufficientEclipseAmountOnVault,
 
+    #[msg("insufficient mushi amount on user ata")]
+    InsufficientMushiAmountOnUserAta,
+
     #[msg("invalid loan amount")]
     InvalidLoanAmount,
 

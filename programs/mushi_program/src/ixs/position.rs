@@ -56,7 +56,6 @@ pub fn close_position(ctx:Context<ACommonExtSubLoan>, es_amount: u64)->Result<()
 pub fn flash_close_position(ctx:Context<ACommonExtSubLoan>)->Result<()>{
     require!(!ctx.accounts.common.is_loan_expired()?, MushiProgramError::LoanExpired);
     let global_state = &mut ctx.accounts.common.global_state;
-    let global_state = &mut ctx.accounts.common.global_state;
     liquidate(
         &mut ctx.accounts.common.last_liquidation_date_state,
         global_state,

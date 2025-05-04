@@ -246,9 +246,10 @@ pub struct ACommonExtReferral<'info> {
     
     #[account(
         mut,
+        address = referral_address,
     )]
     pub referral: SystemAccount<'info>,
-
+    
     #[account(
         // init,
         // payer = common.user,

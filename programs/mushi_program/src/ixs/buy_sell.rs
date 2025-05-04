@@ -135,10 +135,9 @@ pub fn buy_with_referral(
         .unwrap();
     // let fee: u64 = es_amount.checked_div(FEES_BUY).unwrap();
 
-    require!(fee_treasury > MIN, MushiProgramError::TooSmallTeamFee);
-    if fee_referral <= MIN {
-        return Err(MushiProgramError::TooSmallTeamFee.into());
-    }
+    // require!(fee_treasury > MIN, MushiProgramError::TooSmallTeamFee);
+    // require!(fee_referral > MIN, MushiProgramError::TooSmallTeamFee);
+    require!(fee_treasury + fee_referral > MIN, MushiProgramError::TooSmallTeamFee);
 
     let left_es_amount = es_amount.checked_sub(fee_treasury + fee_referral).unwrap();
     {

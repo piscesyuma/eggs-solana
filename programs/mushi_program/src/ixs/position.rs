@@ -5,7 +5,7 @@ use crate::{
     constants::{
         FEES_BUY, FEES_SELL, FEE_BASE_1000, MIN, SECONDS_IN_A_DAY, VAULT_SEED
     }, context::{ACommonExtLoan, ACommonExtLoan2, ACommonExtSubLoan}, error::MushiProgramError, utils::{
-        burn_tokens, get_interest_fee, get_midnight_timestamp, liquidate, mint_to_tokens_by_main_state, sub_loans_by_date, transfer_tokens, transfer_tokens_checked
+        burn_tokens, get_interest_fee, get_midnight_timestamp, liquidate, sub_loans_by_date, transfer_tokens, transfer_tokens_checked
     }
 };
 use crate::context::common::ACommon;

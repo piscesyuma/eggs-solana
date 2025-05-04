@@ -13,7 +13,7 @@ use mpl_token_metadata::{
 };
 
 use crate::{
-    constants::{LAMPORTS_PER_ECLIPSE, MIN_INITIALIZE_RATIO, SECONDS_IN_A_DAY, VAULT_SEED}, error::MushiProgramError, program::MushiProgram, utils::{burn_tokens, mint_to_tokens_by_main_state, transfer_tokens_checked}, GlobalStats, MainState
+    constants::{LAMPORTS_PER_ECLIPSE, MAX_SUPPLY, MIN_INITIALIZE_RATIO, SECONDS_IN_A_DAY, VAULT_SEED}, error::MushiProgramError, program::MushiProgram, utils::{burn_tokens, mint_to_tokens_by_main_state, transfer_tokens_checked}, GlobalStats, MainState
 };
 
 #[derive(AnchorSerialize, AnchorDeserialize, Debug, Clone)]
@@ -36,6 +36,8 @@ pub fn start(ctx: Context<AStart>, input: StartInput) -> Result<()> {
     
     let token_vault = ctx.accounts.token_vault.to_account_info();
     let mushi_token_program = ctx.accounts.base_token_program.to_account_info();
+    
+    require!(global_state.token_supply + team_mint_amount <= MAX_SUPPLY, MushiProgramError::MaxSupplyExceeded);
     // mint tokens
     mint_to_tokens_by_main_state(
         mushi_mint.to_account_info(),

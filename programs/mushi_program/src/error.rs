@@ -70,4 +70,7 @@ pub enum MushiProgramError {
 
     #[msg("stake is not enabled")]
     StakeNotEnabled,
+
+    #[msg("max supply exceeded")]
+    MaxSupplyExceeded,
 }

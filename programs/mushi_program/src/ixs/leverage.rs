@@ -3,7 +3,7 @@ use anchor_spl::{associated_token::AssociatedToken, token_interface};
 
 use crate::{
     constants::{
-        FEES_BUY, FEES_SELL, FEE_BASE_1000, MIN, SECONDS_IN_A_DAY, VAULT_SEED
+        FEES_BUY, FEES_SELL, FEE_BASE_1000, MAX_SUPPLY, MIN, SECONDS_IN_A_DAY, VAULT_SEED
     }, context::ACommonExtLoan, error::MushiProgramError, utils::{
         add_loans_by_date, burn_tokens, get_interest_fee, get_midnight_timestamp, liquidate, mint_to_tokens_by_main_state, transfer_tokens, transfer_tokens_checked
     }
@@ -58,6 +58,8 @@ pub fn leverage(ctx:Context<ACommonExtLoan>, number_of_days: u64, es_amount:u64)
     // Calculate user_mushi before borrowing ctx.accounts mutably again
     let user_mushi = ctx.accounts.common.eclipse_to_mushi_lev(user_eclipse, sub_value, es_amount)?;
     
+    require!(ctx.accounts.common.global_state.token_supply + user_mushi <= MAX_SUPPLY, MushiProgramError::MaxSupplyExceeded);
+
     // Mint tokens
     mint_to_tokens_by_main_state(
         ctx.accounts.common.token.to_account_info(),

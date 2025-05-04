@@ -1,6 +1,7 @@
 use anchor_lang::prelude::*;
 use anchor_spl::{associated_token::AssociatedToken, token_interface};
 
+use crate::constants::MAX_SUPPLY;
 use crate::context::common::ACommon;
 use crate::utils::transfer_tokens_checked;
 use crate::{
@@ -26,6 +27,8 @@ pub fn buy(ctx: Context<ACommon>, es_amount: u64) -> Result<()> {
     )?;
     let is_started = global_state.started;
     require!(is_started, MushiProgramError::NotStarted);
+
+    require!(global_state.token_supply + mushi * ctx.accounts.main_state.buy_fee / FEE_BASE_1000 <= MAX_SUPPLY, MushiProgramError::MaxSupplyExceeded);
     // minting tokens
     mint_to_tokens_by_main_state(
         ctx.accounts.token.to_account_info(),
@@ -106,6 +109,7 @@ pub fn buy_with_referral(
     let is_started = global_state.started;
     require!(is_started, MushiProgramError::NotStarted);
 
+    require!(global_state.token_supply + mushi * ctx.accounts.common.main_state.buy_fee / FEE_BASE_1000 <= MAX_SUPPLY, MushiProgramError::MaxSupplyExceeded);
     // minting tokens
     mint_to_tokens_by_main_state(
         ctx.accounts.common.token.to_account_info(),

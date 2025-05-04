@@ -11,7 +11,7 @@ use crate::{
 use crate::context::common::ACommon;
 
 pub fn leverage(ctx:Context<ACommonExtLoan>, number_of_days: u64, es_amount:u64)->Result<()>{
-    let is_started = ctx.accounts.common.global_state.started;
+    let is_started = ctx.accounts.common.main_state.started;
     require!(is_started, MushiProgramError::NotStarted);
     require!(number_of_days < 366, MushiProgramError::InvalidNumberOfDays);
     require!(es_amount != 0, MushiProgramError::InvalidEclipseAmount);

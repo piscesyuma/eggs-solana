@@ -13,6 +13,7 @@ pub struct UpdateMainStateInput {
     stake_token: Option<Pubkey>,
     stake_vault_program: Option<Pubkey>,
     stake_enabled: Option<bool>,
+    started: Option<bool>,
 }
 
 pub fn update_main_state(
@@ -53,6 +54,10 @@ pub fn update_main_state(
         MushiProgramError::InvalidBuyFeeLeverage
     );
     state.buy_fee_leverage = buy_fee_leverage;
+
+    let started = input.started.unwrap_or(state.started);
+    state.started = started;
+    
     Ok(())
 }
 

@@ -16,6 +16,7 @@ pub struct MainState {
     pub stake_token: Pubkey,
     pub stake_vault_program: Pubkey,
     pub stake_enabled: bool,
+    pub started: bool,
 }
 
 impl MainState {
@@ -50,7 +51,6 @@ impl DailyStats {
 
 #[account]
 pub struct GlobalStats {
-    pub started: bool,
     pub last_liquidation_date: i64,
     pub total_borrowed: u64,
     pub total_collateral: u64,

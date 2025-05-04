@@ -57,8 +57,10 @@ pub fn start(ctx: Context<AStart>, input: StartInput) -> Result<()> {
         1 * LAMPORTS_PER_ECLIPSE,
         Some(&[&[VAULT_SEED, &[*ctx.bumps.get("token_vault_owner").unwrap()]]]),
     )?;
+
+    main_state.started = true;
+
     global_state.token_supply = team_mint_amount;
-    global_state.started = true;
     global_state.base_token = mushi_mint.key();
     global_state.total_borrowed = 0;
     global_state.total_collateral = 0;

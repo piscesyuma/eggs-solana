@@ -51,9 +51,9 @@ export type MainStateInfo = {
   quoteToken: web3.PublicKey;
   stakeToken: web3.PublicKey;
   stakeVaultProgram: web3.PublicKey;
+  started: boolean;
 };
 export type GlobalStateInfo = {
-  started: boolean;
   tokenSupply: number;
   baseToken: web3.PublicKey;
   lastLiquidationDate: number;
@@ -235,8 +235,17 @@ export class MushiProgramRpc {
 
   async getMainStateInfo(): Promise<MainStateInfo | null> {
     try {
-      const { admin, feeReceiver, sellFee, buyFee, buyFeeLeverage, quoteToken, stakeToken, stakeVaultProgram } =
-        await this.program.account.mainState.fetch(this.mainState);
+      const { 
+        admin, 
+        feeReceiver, 
+        sellFee, 
+        buyFee, 
+        buyFeeLeverage, 
+        quoteToken, 
+        stakeToken, 
+        stakeVaultProgram, 
+        started 
+      } = await this.program.account.mainState.fetch(this.mainState);
       return {
         admin,
         sellFee: Number(sellFee.toString()) / ONE_BASIS_POINTS,
@@ -246,6 +255,7 @@ export class MushiProgramRpc {
         quoteToken,
         stakeToken,
         stakeVaultProgram,
+        started,
       };
     } catch (getMainStateInfoError) {
       log({ getMainStateInfoError });
@@ -255,12 +265,11 @@ export class MushiProgramRpc {
 
   async getGlobalInfo(): Promise<GlobalStateInfo | null> {
     try {
-      const { tokenSupply, baseToken, started, lastLiquidationDate, totalBorrowed, totalCollateral, totalEclipseTokenStaked, lastPrice } =
+      const { tokenSupply, baseToken, lastLiquidationDate, totalBorrowed, totalCollateral, totalEclipseTokenStaked, lastPrice } =
         await this.program.account.globalStats.fetch(this.globalState);
       return {
         tokenSupply: Number(tokenSupply.toString()),
         baseToken,
-        started,
         lastLiquidationDate: Number(lastLiquidationDate.toString()),
         totalBorrowed: Number(totalBorrowed.toString()),
         totalCollateral: Number(totalCollateral.toString()),

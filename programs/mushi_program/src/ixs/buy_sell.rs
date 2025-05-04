@@ -25,7 +25,7 @@ pub fn buy(ctx: Context<ACommon>, es_amount: u64) -> Result<()> {
         ctx.accounts.base_token_program.to_account_info(),
         *ctx.bumps.get("token_vault_owner").unwrap(),
     )?;
-    let is_started = global_state.started;
+    let is_started = ctx.accounts.main_state.started;
     require!(is_started, MushiProgramError::NotStarted);
 
     require!(global_state.token_supply + mushi * ctx.accounts.main_state.buy_fee / FEE_BASE_1000 <= MAX_SUPPLY, MushiProgramError::MaxSupplyExceeded);
@@ -106,7 +106,7 @@ pub fn buy_with_referral(
         ctx.accounts.common.base_token_program.to_account_info(),
         *ctx.bumps.get("token_vault_owner").unwrap(),
     )?;
-    let is_started = global_state.started;
+    let is_started = ctx.accounts.common.main_state.started;
     require!(is_started, MushiProgramError::NotStarted);
 
     require!(global_state.token_supply + mushi * ctx.accounts.common.main_state.buy_fee / FEE_BASE_1000 <= MAX_SUPPLY, MushiProgramError::MaxSupplyExceeded);

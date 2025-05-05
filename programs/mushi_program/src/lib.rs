@@ -86,4 +86,8 @@ pub mod mushi_program {
     pub fn unstake(ctx: Context<Unstake>, amount: u64) -> Result<()> {
         ixs::unstake(ctx, amount)
     }
+
+    pub fn liquidate(ctx: Context<ACommon>) -> Result<()> {
+        ixs::liquidate_expired_loans(ctx)
+    }
 }

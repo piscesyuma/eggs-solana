@@ -161,32 +161,37 @@ pub fn liquidate<'info>(
     token_program: AccountInfo<'info>,
     vault_owner_bump: u8,
 ) -> Result<()> {
-    let mut borrowed: u64 = 0;
-    let mut collateral: u64 = 0;
-    let mut last_liquidation_date = global_state.last_liquidation_date;
-
     let current_timestamp = Clock::get().unwrap().unix_timestamp;
-    while (global_state.last_liquidation_date < current_timestamp) {
-        collateral += last_liquidation_date_state.collateral;
-        borrowed += last_liquidation_date_state.borrowed;
+    
+    // Only process one day at a time
+    if global_state.last_liquidation_date < current_timestamp {
+        // Accumulate borrowed and collateral for the current day
+        let borrowed = last_liquidation_date_state.borrowed;
+        let collateral = last_liquidation_date_state.collateral;
+        
+        // Update global stats
+        if collateral > 0 {
+            global_state.total_collateral = global_state.total_collateral.saturating_sub(collateral);
+            
+            // Burn the collateral tokens
+            burn_tokens(
+                token_vault,
+                token,
+                token_vault_owner,
+                token_program,
+                collateral,
+                Some(&[&[VAULT_SEED, &[vault_owner_bump]]]),
+            )?;
+        }
+        
+        if borrowed > 0 {
+            global_state.total_borrowed = global_state.total_borrowed.saturating_sub(borrowed);
+        }
+        
+        // Advance to the next day
         global_state.last_liquidation_date += SECONDS_IN_A_DAY;
     }
-
-    if collateral != 0 {
-        global_state.total_collateral -= collateral;
-        burn_tokens(
-            token_vault,
-            token,
-            token_vault_owner,
-            token_program,
-            collateral,
-            Some(&[&[VAULT_SEED, &[vault_owner_bump]]]),
-        )?;
-    }
-
-    if borrowed != 0 {
-        global_state.total_borrowed -= borrowed;
-    }
+    
     Ok(())
 }
 
@@ -232,7 +237,7 @@ pub fn get_interest_fee(amount: u64, number_of_days: u64) -> u64 {
 
 /// Converts a Unix timestamp to a date string in YYYY-MM-DD format.
 /// First normalizes the timestamp to midnight (00:00:00) of the day.
-pub fn get_date_string_from_timestamp(timestamp: i64) -> String {
+pub fn get_date_string_from_timestamp(timestamp: i64) -> Result<String> {
     // Normalize to midnight
     let normalized_timestamp = get_date_from_timestamp(timestamp);
 
@@ -276,7 +281,7 @@ pub fn get_date_string_from_timestamp(timestamp: i64) -> String {
     let day = days_remaining + 1;
 
     // Format as YYYY-MM-DD
-    format!("{:04}-{:02}-{:02}", year, month, day)
+    Ok(format!("{:04}-{:02}-{:02}", year, month, day))
 }
 
 // Helper function to determine if a year is a leap year
@@ -312,10 +317,10 @@ pub fn sub_loans_by_date(
 
 /// Returns the current date in YYYY-MM-DD format
 pub fn get_current_date_string() -> Result<String> {
-    Ok(get_date_string_from_timestamp(Clock::get()?.unix_timestamp))
+    get_date_string_from_timestamp(Clock::get()?.unix_timestamp)
 }
 
 /// Returns the global state's last liquidation date in YYYY-MM-DD format
 pub fn get_liquidation_date_string(last_liquidation_date: i64) -> Result<String> {
-    Ok(get_date_string_from_timestamp(last_liquidation_date))
+    get_date_string_from_timestamp(last_liquidation_date)
 }

@@ -73,4 +73,10 @@ pub enum MushiProgramError {
 
     #[msg("max supply exceeded")]
     MaxSupplyExceeded,
+    
+    #[msg("not enough daily stats accounts provided for liquidation")]
+    NotEnoughDailyStatsAccounts,
+    
+    #[msg("invalid daily stats account provided")]
+    InvalidDailyStatsAccount,
 }

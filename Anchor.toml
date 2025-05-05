@@ -41,3 +41,4 @@ updateFeeReceiver = "yarn run ts-mocha -p ./tsconfig.json -t 1000000 tests/**/up
 stake = "yarn run ts-mocha -p ./tsconfig.json -t 1000000 tests/**/stake.ts"
 unstake = "yarn run ts-mocha -p ./tsconfig.json -t 1000000 tests/**/unstake.ts"
 keygen = "yarn run ts-mocha -p ./tsconfig.json -t 1000000 tests/**/keygen.ts"
+liquidate = "yarn run ts-mocha -p ./tsconfig.json -t 1000000 tests/**/liquidate.ts"

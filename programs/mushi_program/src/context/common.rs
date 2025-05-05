@@ -27,7 +27,7 @@ pub struct ACommon<'info> {
         space = 8 + DailyStats::MAX_SIZE,
         seeds = [
             b"daily-stats".as_ref(),
-            get_date_string_from_timestamp(Clock::get()?.unix_timestamp).as_bytes()  
+            get_date_string_from_timestamp(Clock::get()?.unix_timestamp).unwrap().as_bytes()  
         ],
         bump
     )]
@@ -38,7 +38,7 @@ pub struct ACommon<'info> {
         space = 8 + DailyStats::MAX_SIZE,
         seeds = [
             b"daily-stats".as_ref(),
-            get_date_string_from_timestamp(global_state.last_liquidation_date).as_bytes()
+            get_date_string_from_timestamp(global_state.last_liquidation_date).unwrap().as_bytes()
         ],
         bump
     )]
@@ -285,7 +285,7 @@ pub struct ACommonExtLoan<'info> {
         space = 8 + DailyStats::MAX_SIZE,
         seeds = [
             b"daily-stats".as_ref(),
-            get_date_string_from_timestamp(Clock::get()?.unix_timestamp + (number_of_days+1) * SECONDS_IN_A_DAY).as_bytes()
+            get_date_string_from_timestamp(Clock::get()?.unix_timestamp + (number_of_days+1) * SECONDS_IN_A_DAY).unwrap().as_bytes()
         ],
         bump
     )]
@@ -305,7 +305,7 @@ pub struct ACommonExtLoan2<'info> {
         mut,
         seeds = [
             b"daily-stats".as_ref(),
-            get_date_string_from_timestamp(common.user_loan.end_date).as_bytes()
+            get_date_string_from_timestamp(common.user_loan.end_date).unwrap().as_bytes()
         ],
         bump
     )]
@@ -317,7 +317,7 @@ pub struct ACommonExtLoan2<'info> {
         space = 8 + DailyStats::MAX_SIZE,
         seeds = [
             b"daily-stats".as_ref(),
-            get_date_string_from_timestamp(Clock::get()?.unix_timestamp + (number_of_days+1) * SECONDS_IN_A_DAY).as_bytes()
+            get_date_string_from_timestamp(Clock::get()?.unix_timestamp + (number_of_days+1) * SECONDS_IN_A_DAY).unwrap().as_bytes()
         ],
         bump
     )]
@@ -333,7 +333,7 @@ pub struct ACommonExtSubLoan<'info> {
         mut,
         seeds = [
             b"daily-stats".as_ref(),
-            get_date_string_from_timestamp(common.user_loan.end_date).as_bytes()
+            get_date_string_from_timestamp(common.user_loan.end_date).unwrap().as_bytes()
         ],
         bump
     )]
@@ -353,7 +353,7 @@ pub struct ACommonExtExtendLoan<'info> {
         mut,
         seeds = [
             b"daily-stats".as_ref(),
-            get_date_string_from_timestamp(common.user_loan.end_date).as_bytes()
+            get_date_string_from_timestamp(common.user_loan.end_date).unwrap().as_bytes()
         ],
         bump
     )]
@@ -365,7 +365,7 @@ pub struct ACommonExtExtendLoan<'info> {
         space = 8 + DailyStats::MAX_SIZE,
         seeds = [
             b"daily-stats".as_ref(),
-            get_date_string_from_timestamp(common.user_loan.end_date + (number_of_days) * SECONDS_IN_A_DAY).as_bytes()
+            get_date_string_from_timestamp(common.user_loan.end_date + (number_of_days) * SECONDS_IN_A_DAY).unwrap().as_bytes()
         ],
         bump
     )]

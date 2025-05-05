@@ -3,17 +3,22 @@ import { web3 } from "@coral-xyz/anchor";
 import { Program } from "@coral-xyz/anchor";
 import { MushiProgram } from "../target/types/mushi_program";
 import { MainStateInfo, GlobalStateInfo, sleep, MushiProgramRpc, getCurrentDateString } from "./mushiProgramRpc";
+import * as dotenv from 'dotenv';
+import * as path from 'path';
 
+// Load environment variables from .env file
+dotenv.config({ path: path.resolve(__dirname, '../.env') });
 const log = console.log;
-describe("mushi_program_repay", () => {
+describe("mushi_program_liquidate_expired_loans", () => {
   // Configure the client to use the local cluster.
   anchor.setProvider(anchor.AnchorProvider.env());
   const provider = anchor.AnchorProvider.env();
   const connection = provider.connection;
   const rpc = connection.rpcEndpoint;
-  const programId = new web3.PublicKey(
-    "HF5x1bCgynzEnBL7ATMFYPNFjBaqfxgMASyUJL2ud6Xi"
-  );
+  const programId = process.env.PROGRAM_ID 
+    ? new web3.PublicKey(process.env.PROGRAM_ID) 
+    : new web3.PublicKey("HF5x1bCgynzEnBL7ATMFYPNFjBaqfxgMASyUJL2ud6Xi");
+
   let mainStateInfo: MainStateInfo | null = null;
   let globalInfo: GlobalStateInfo | null = null;
   const connectivity = new MushiProgramRpc({
@@ -22,9 +27,6 @@ describe("mushi_program_repay", () => {
     programId,
   });
   const user = provider.publicKey;
-
-  // Parameters for the repay operation
-  const esAmount = 2; // Amount of ECLIPSE to repay (should be <= borrowed amount)
 
   it("Get initial state info", async () => {
     mainStateInfo = await connectivity.getMainStateInfo();
@@ -46,14 +48,14 @@ describe("mushi_program_repay", () => {
     log(`Current date: ${getCurrentDateString()}`);
   });
 
-  it("Repay borrowed ECLIPSE", async () => {
+  it("Liquidate expired loans", async () => {
     if (!globalInfo) throw "Global state info is not available";
 
-    // Perform the repay operation with debug=true to show date strings
-    const repayRes = await connectivity.repay(esAmount, true);
-    if (!repayRes.isPass) throw "Failed to repay ECLIPSE";
+    // Perform the flash close position operation with debug=true to show date strings
+    const liquidateRes = await connectivity.liquidate();
+    if (!liquidateRes.isPass) throw "Failed to liquidate";
     
-    log({ repayRes: repayRes.info });
+    log({ liquidateRes: liquidateRes.info });
 
     // Wait for the transaction to be processed
     await sleep(10_000);
@@ -64,6 +66,6 @@ describe("mushi_program_repay", () => {
     log({ updatedGlobalInfo });
     
     // Log the transaction was successful
-    log("Successfully repaid ECLIPSE");
+    log("Successfully liquidated expired loans");
   });
 }); 

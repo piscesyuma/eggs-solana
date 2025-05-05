@@ -43,7 +43,7 @@ describe("mushi_program_sell", () => {
     log({ globalInfo });
 
     // Check if the protocol has been started
-    if (!globalInfo.started) {
+    if (!mainStateInfo.started) {
       log("The protocol has not been started yet. Please run the start test first.");
       return;
     }

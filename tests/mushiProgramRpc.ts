@@ -435,6 +435,7 @@ export class MushiProgramRpc {
   }
 
   async updateMainState(input: {
+    started?: boolean;
     feeReceiver?: web3.PublicKey;
     admin?: web3.PublicKey;
     sellFee?: number;
@@ -450,6 +451,7 @@ export class MushiProgramRpc {
       const newAdmin = input.admin ?? null;
       const ix = await this.program.methods
         .updateMainState({ 
+          started: input.started ?? null,
           feeReceiver: feeReceiver,
           admin: null,
           sellFee: null,
@@ -552,6 +554,39 @@ export class MushiProgramRpc {
 
   }
   
+  async liquidate(
+  ): Promise<SendTxResult> {
+    try {
+      const globalState = await this.program.account.globalStats.fetch(this.globalState);
+      const lastLiquidationDate = globalState.lastLiquidationDate;
+      const liquidationDateString = getDateStringFromTimestamp(Number(lastLiquidationDate));
+      const currentTimestamp = getCurrentDateString();
+
+      if (currentTimestamp === liquidationDateString) {
+        console.log("No need to liquidate");
+        return { isPass: true, info: { txSignature: "" } };
+      }
+
+      const baseCommonContext = await this.getBaseCommonContext();
+      const ix = await this.program.methods
+        .liquidate()
+        .accounts(baseCommonContext)
+        .instruction();
+        
+      const ixs = [
+        web3.ComputeBudgetProgram.setComputeUnitLimit({ units: 150_000 }),
+        ix,
+      ];
+      
+      const txSignature = await this.sendTx(ixs);
+      if (!txSignature) throw "failed to send tx";
+      return { isPass: true, info: { txSignature } };
+    } catch (liquidateError) {
+      log({ liquidateError });
+      return { isPass: false, info: "failed to liquidate" };
+    }
+  }
+
   async buy(
     esAmount: number,
     debug: boolean = false

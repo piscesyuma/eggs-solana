@@ -42,7 +42,7 @@ describe("mushi_program_buy", () => {
     if (!globalInfo) throw "Failed to get global state info";
 
     // Check if the protocol has been started
-    if (!globalInfo.started) {
+    if (!mainStateInfo.started) {
       log("The protocol has not been started yet. Please run the start test first.");
       return;
     }

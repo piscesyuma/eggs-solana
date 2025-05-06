@@ -51,6 +51,9 @@ pub enum MushiProgramError {
     #[msg("not started")]
     NotStarted,
 
+    #[msg("already started")]
+    AlreadyStarted,
+
     #[msg("too small team fee")]
     TooSmallTeamFee,
 

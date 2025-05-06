@@ -30,6 +30,8 @@ pub fn start(ctx: Context<AStart>, input: StartInput) -> Result<()> {
     let mushi_mint = ctx.accounts.base_token.to_account_info();
     let admin = ctx.accounts.admin.to_account_info();
     //checks
+
+    require!(!main_state.started, MushiProgramError::AlreadyStarted);
     let team_mint_amount = input.es_amount * MIN_INITIALIZE_RATIO;
     require!(team_mint_amount >= LAMPORTS_PER_ECLIPSE, MushiProgramError::InvalidInput);
     

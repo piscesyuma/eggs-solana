@@ -16,6 +16,16 @@ pub fn repay(ctx:Context<ACommonExtSubLoan>, es_amount: u64)->Result<()>{
     require!(borrowed > es_amount, MushiProgramError::InvalidEclipseAmount);
     require!(es_amount != 0, MushiProgramError::InvalidEclipseAmount);
 
+    liquidate(
+        &mut ctx.accounts.common.last_liquidation_date_state,
+        &mut ctx.accounts.common.global_state,
+        ctx.accounts.common.token_vault.to_account_info(),
+        ctx.accounts.common.token.to_account_info(),
+        ctx.accounts.common.token_vault_owner.to_account_info(),
+        ctx.accounts.common.base_token_program.to_account_info(),
+        *ctx.bumps.get("token_vault_owner").unwrap(),
+    )?;
+
     let quote_mint = ctx.accounts.common.quote_mint.to_account_info();
     let quote_token_program = ctx.accounts.common.quote_token_program.to_account_info();
     let decimals = ctx.accounts.common.quote_mint.decimals;

@@ -2,6 +2,8 @@ use crate::state::{DailyStats, GlobalStats, MainState};
 use crate::utils::get_midnight_timestamp;
 use anchor_lang::prelude::*;
 use anchor_spl::token_interface;
+use crate::error::MushiProgramError;
+
 #[derive(AnchorSerialize, AnchorDeserialize, Debug, Clone)]
 pub struct InitializeInput {
     pub fee_receiver: Pubkey,
@@ -12,6 +14,16 @@ pub struct InitializeInput {
 }
 
 pub fn init_main_state(ctx: Context<AInitializeState>, input: InitializeInput) -> Result<()> {
+    require!(
+        input.buy_fee <= 992 && input.buy_fee >= 975,
+        MushiProgramError::InvalidBuyFee
+    );
+
+    require!(
+        input.sell_fee <= 992 && input.sell_fee >= 975,
+        MushiProgramError::InvalidSellFee
+    );
+
     // main state
     let main_state = &mut ctx.accounts.main_state;
     main_state.admin = ctx.accounts.admin.key();

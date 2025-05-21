@@ -1,4 +1,6 @@
 [toolchain]
+solana = "1.17.25"
+anchor = "0.29.0"
 
 [features]
 seeds = false

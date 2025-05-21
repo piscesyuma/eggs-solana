@@ -21,42 +21,81 @@ pub fn update_main_state(
     input: UpdateMainStateInput,
 ) -> Result<()> {
     let state = &mut ctx.accounts.main_state;
-    state.admin = input.admin.unwrap_or(state.admin);
-    state.fee_receiver = input.fee_receiver.unwrap_or(state.fee_receiver);
-
-    let state_token = input.stake_token.unwrap_or(state.stake_token);
-    state.stake_token = state_token;
-
-    let stake_vault_program = input.stake_vault_program.unwrap_or(state.stake_vault_program);
-    state.stake_vault_program = stake_vault_program;
-
-    let stake_enabled = input.stake_enabled.unwrap_or(state.stake_enabled);
-    state.stake_enabled = stake_enabled;
-
-    let buy_fee = input.buy_fee.unwrap_or(state.buy_fee);
-
-    require!(
-        buy_fee <= 992 && buy_fee >= 975,
-        MushiProgramError::InvalidBuyFee
-    );
-    state.buy_fee = buy_fee;
-
-    let sell_fee = input.sell_fee.unwrap_or(state.sell_fee);
-    require!(
-        sell_fee <= 992 && sell_fee >= 975,
-        MushiProgramError::InvalidSellFee
-    );
-    state.sell_fee = input.sell_fee.unwrap_or(state.sell_fee);
-
-    let buy_fee_leverage = input.buy_fee_leverage.unwrap_or(state.buy_fee_leverage);
-    require!(
-        buy_fee_leverage <= 25,
-        MushiProgramError::InvalidBuyFeeLeverage
-    );
-    state.buy_fee_leverage = buy_fee_leverage;
-
-    let started = input.started.unwrap_or(state.started);
-    state.started = started;
+    
+    // Only update admin if provided and different from current value
+    if let Some(admin) = input.admin {
+        if admin != state.admin {
+            state.admin = admin;
+        }
+    }
+    
+    // Only update fee_receiver if provided and different from current value
+    if let Some(fee_receiver) = input.fee_receiver {
+        if fee_receiver != state.fee_receiver {
+            state.fee_receiver = fee_receiver;
+        }
+    }
+    
+    // Only update stake_token if provided and different from current value
+    if let Some(stake_token) = input.stake_token {
+        if stake_token != state.stake_token {
+            state.stake_token = stake_token;
+        }
+    }
+    
+    // Only update stake_vault_program if provided and different from current value
+    if let Some(stake_vault_program) = input.stake_vault_program {
+        if stake_vault_program != state.stake_vault_program {
+            state.stake_vault_program = stake_vault_program;
+        }
+    }
+    
+    // Only update stake_enabled if provided and different from current value
+    if let Some(stake_enabled) = input.stake_enabled {
+        if stake_enabled != state.stake_enabled {
+            state.stake_enabled = stake_enabled;
+        }
+    }
+    
+    // Only update buy_fee if provided and different from current value
+    if let Some(buy_fee) = input.buy_fee {
+        require!(
+            buy_fee <= 992 && buy_fee >= 975,
+            MushiProgramError::InvalidBuyFee
+        );
+        if buy_fee != state.buy_fee {
+            state.buy_fee = buy_fee;
+        }
+    }
+    
+    // Only update sell_fee if provided and different from current value
+    if let Some(sell_fee) = input.sell_fee {
+        require!(
+            sell_fee <= 992 && sell_fee >= 975,
+            MushiProgramError::InvalidSellFee
+        );
+        if sell_fee != state.sell_fee {
+            state.sell_fee = sell_fee;
+        }
+    }
+    
+    // Only update buy_fee_leverage if provided and different from current value
+    if let Some(buy_fee_leverage) = input.buy_fee_leverage {
+        require!(
+            buy_fee_leverage <= 25,
+            MushiProgramError::InvalidBuyFeeLeverage
+        );
+        if buy_fee_leverage != state.buy_fee_leverage {
+            state.buy_fee_leverage = buy_fee_leverage;
+        }
+    }
+    
+    // Only update started if provided and different from current value
+    if let Some(started) = input.started {
+        if started != state.started {
+            state.started = started;
+        }
+    }
     
     Ok(())
 }

@@ -55,7 +55,7 @@ describe("mushi_program_buy", () => {
     if (!globalInfo) throw "Global state info is not available";
 
     // Perform the buy operation with debug=true to show date strings
-    const buyRes = await connectivity.buy(esAmount, true);
+    const buyRes = await connectivity.buy(esAmount);
     if (!buyRes.isPass) throw "Failed to buy tokens";
     
     log({ buyRes: buyRes.info });

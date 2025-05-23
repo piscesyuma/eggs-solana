@@ -589,6 +589,7 @@ export class MushiProgramRpc {
 
   async buy(
     esAmount: number,
+    minMushiOut?: number,
     debug: boolean = false
   ): Promise<SendTxResult> {
     try {
@@ -596,7 +597,7 @@ export class MushiProgramRpc {
       
       const baseCommonContext = await this.getBaseCommonContext();
       const ix = await this.program.methods
-        .buy(new BN(rawesAmount))
+        .buy(new BN(rawesAmount), minMushiOut ? new BN(minMushiOut) : null)
         .accounts(baseCommonContext)
         .instruction();
       
@@ -616,7 +617,8 @@ export class MushiProgramRpc {
 
   async buy_with_referral(
     esAmount: number,
-    referralPubkey: web3.PublicKey
+    referralPubkey: web3.PublicKey,
+    minMushiOut?: number,
   ): Promise<SendTxResult> {
     try {
 
@@ -648,6 +650,7 @@ export class MushiProgramRpc {
         .buyWithReferral(
           referralPubkey,
           new BN(rawesAmount),
+          minMushiOut ? new BN(minMushiOut) : null
         )
         .accounts({
           common: baseCommonContext,
@@ -675,13 +678,14 @@ export class MushiProgramRpc {
 
   async sell(
     tokenAmount: number,
+    minEclipseOut?: number,
     debug: boolean = false
   ): Promise<SendTxResult> {
     try {
       const rawTokenAmount = Math.trunc(tokenAmount * TOKEN_DECIMALS_HELPER);
       const baseCommonContext = await this.getBaseCommonContext();
       const ix = await this.program.methods
-        .sell(new BN(rawTokenAmount))
+        .sell(new BN(rawTokenAmount), minEclipseOut ? new BN(minEclipseOut) : null)
         .accounts(baseCommonContext)
         .instruction();
       

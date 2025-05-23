@@ -82,4 +82,7 @@ pub enum MushiProgramError {
     
     #[msg("invalid daily stats account provided")]
     InvalidDailyStatsAccount,
+
+    #[msg("too small output amount")]
+    TooSmallOutputAmount,
 }

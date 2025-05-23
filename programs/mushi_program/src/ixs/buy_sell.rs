@@ -13,8 +13,12 @@ use crate::{
     },
 };
 
-pub fn buy(ctx: Context<ACommon>, es_amount: u64) -> Result<()> {
+pub fn buy(ctx: Context<ACommon>, es_amount: u64, min_mushi_out: Option<u64>) -> Result<()> {
     let mushi = ctx.accounts.eclipse_to_mushi(es_amount)?;
+
+    let min_mushi_out = min_mushi_out.unwrap_or(mushi);
+    require!(mushi >= min_mushi_out, MushiProgramError::TooSmallOutputAmount);
+
     let global_state = &mut ctx.accounts.global_state;
     liquidate(
         &mut ctx.accounts.last_liquidation_date_state,
@@ -94,8 +98,13 @@ pub fn buy_with_referral(
     ctx: Context<ACommonExtReferral>,
     referral_address: Pubkey,
     es_amount: u64,
+    min_mushi_out: Option<u64>,
 ) -> Result<()> {
     let mushi = ctx.accounts.common.eclipse_to_mushi(es_amount)?;
+    
+    let min_mushi_out = min_mushi_out.unwrap_or(mushi);
+    require!(mushi >= min_mushi_out, MushiProgramError::TooSmallOutputAmount);
+
     let global_state = &mut ctx.accounts.common.global_state;
     liquidate(
         &mut ctx.accounts.common.last_liquidation_date_state,
@@ -185,8 +194,12 @@ pub fn buy_with_referral(
     Ok(())
 }
 
-pub fn sell(ctx: Context<ACommon>, token_amount: u64) -> Result<()> {
+pub fn sell(ctx: Context<ACommon>, token_amount: u64, min_eclipse_out: Option<u64>) -> Result<()> {
     let es_amount = ctx.accounts.mushi_to_eclipse(token_amount)?;
+
+    let min_eclipse_out = min_eclipse_out.unwrap_or(es_amount);
+    require!(es_amount >= min_eclipse_out, MushiProgramError::TooSmallOutputAmount);
+
     let global_state = &mut ctx.accounts.global_state;
     liquidate(
         &mut ctx.accounts.last_liquidation_date_state,

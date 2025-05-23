@@ -35,16 +35,16 @@ pub mod mushi_program {
         ixs::start(ctx, input)
     }
 
-    pub fn buy(ctx: Context<ACommon>, es_amount: u64) -> Result<()> {
-        ixs::buy(ctx, es_amount)
+    pub fn buy(ctx: Context<ACommon>, es_amount: u64, min_mushi_out: Option<u64>) -> Result<()> {
+        ixs::buy(ctx, es_amount, min_mushi_out)
     }
 
-    pub fn buy_with_referral(ctx: Context<ACommonExtReferral>, referral_address: Pubkey, es_amount: u64) -> Result<()> {
-        ixs::buy_with_referral(ctx, referral_address, es_amount)
+    pub fn buy_with_referral(ctx: Context<ACommonExtReferral>, referral_address: Pubkey, es_amount: u64, min_mushi_out: Option<u64>) -> Result<()> {
+        ixs::buy_with_referral(ctx, referral_address, es_amount, min_mushi_out)
     }
 
-    pub fn sell(ctx: Context<ACommon>, token_amount: u64) -> Result<()> {
-        ixs::sell(ctx, token_amount)
+    pub fn sell(ctx: Context<ACommon>, token_amount: u64, min_eclipse_out: Option<u64>) -> Result<()> {
+        ixs::sell(ctx, token_amount, min_eclipse_out)
     }
 
     pub fn borrow(ctx: Context<ACommonExtLoan>, number_of_days: u64, es_amount: u64) -> Result<()> {

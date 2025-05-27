@@ -247,6 +247,7 @@ pub struct ACommonExtReferral<'info> {
     #[account(
         mut,
         address = referral_address,
+        constraint = referral.key() != common.user.key(),
     )]
     pub referral: SystemAccount<'info>,
     

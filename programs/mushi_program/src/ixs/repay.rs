@@ -11,7 +11,11 @@ use crate::{
 use crate::context::common::ACommon;
 
 pub fn repay(ctx:Context<ACommonExtSubLoan>, es_amount: u64)->Result<()>{
-    let user_loan = & ctx.accounts.common.user_loan;
+    let is_expired = ctx.accounts.common.is_loan_expired()?;
+    
+    require!(!is_expired, MushiProgramError::LoanExpired);
+
+    let user_loan = &mut ctx.accounts.common.user_loan;
     let borrowed = user_loan.borrowed;
     require!(borrowed > es_amount, MushiProgramError::InvalidEclipseAmount);
     require!(es_amount != 0, MushiProgramError::InvalidEclipseAmount);

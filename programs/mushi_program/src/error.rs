@@ -33,6 +33,9 @@ pub enum MushiProgramError {
     #[msg("invalid fee amount")]
     InvalidFeeAmount,
 
+    #[msg("invalid fee receiver")]
+    InvalidFeeReceiver,
+
     #[msg("invalid sol amount")]
     InvalidSolAmount,
     

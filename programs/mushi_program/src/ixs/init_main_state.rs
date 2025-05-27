@@ -24,6 +24,11 @@ pub fn init_main_state(ctx: Context<AInitializeState>, input: InitializeInput) -
         MushiProgramError::InvalidSellFee
     );
 
+    require!(
+        input.fee_receiver != Pubkey::default(),
+        MushiProgramError::InvalidFeeReceiver
+    );
+
     // main state
     let main_state = &mut ctx.accounts.main_state;
     main_state.admin = ctx.accounts.admin.key();

@@ -441,6 +441,7 @@ export class MushiProgramRpc {
     sellFee?: number;
     buyFee?: number;
     buyFeeLeverage?: number;
+    quoteToken?: web3.PublicKey;
     stakeToken?: web3.PublicKey;
     stakeVaultProgram?: web3.PublicKey;
     stakeEnabled?: boolean;
@@ -457,7 +458,10 @@ export class MushiProgramRpc {
           sellFee: null,
           buyFee: null,
           buyFeeLeverage: null,
+          quoteToken: null,
+          // quoteToken: input.quoteToken ?? null,
           stakeToken: input.stakeToken ?? null,
+          // stakeToken: null,
           stakeVaultProgram: input.stakeVaultProgram ?? null,
           stakeEnabled: input.stakeEnabled ?? null,
         })

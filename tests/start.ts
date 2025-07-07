@@ -32,9 +32,9 @@ describe("sonic_program", () => {
   });
   const user = provider.publicKey;
 
-  const tokenName = "Mushi";
-  const tokenSymbol = "MUSHI";
-  const tokenUri = "https://mushi.xyz";
+  const tokenName = "muES";
+  const tokenSymbol = "muES";
+  const tokenUri = "https://mushi.fi";
 
   it("start", async () => {
     const info = await connectivity.getMainStateInfo();
@@ -45,7 +45,7 @@ describe("sonic_program", () => {
         : info.quoteToken;
         
       const startRes = await connectivity.start({
-        esAmount: 10,
+        esAmount: 100,
         tokenName,
         tokenSymbol,
         tokenUri,

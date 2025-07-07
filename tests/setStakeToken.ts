@@ -36,8 +36,9 @@ describe("mushi_program", () => {
     console.log("main state info", { info });
     if (info) {
       const updateRes = await connectivity.updateMainState({
-        stakeToken: new web3.PublicKey("66y6C4cwwqUcV4fdXpEG6iGSVRE82munn5voCMMZLwvy"),
-        stakeVaultProgram: new web3.PublicKey("Bne2XHWW1HaMVHp6jXmCcmX3dVrtFMoYV5n2eyrvFw46")
+        stakeToken: new web3.PublicKey("Et7xStZqRjUfBJcSPYVLT5NDUnmstBenTfuSkVBSyp4G"),
+        stakeVaultProgram: new web3.PublicKey("Bne2XHWW1HaMVHp6jXmCcmX3dVrtFMoYV5n2eyrvFw46"),
+        // quoteToken: new web3.PublicKey("6Y9vfMCya4NbzEw34rXsFYDnbbUnkfRZPsD2qqmmepMH")
       });
       if (!updateRes.isPass) throw "failed to update main state";
       await sleep(7_000);

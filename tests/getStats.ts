@@ -7,6 +7,7 @@ import { MainStateInfo, GlobalStateInfo, sleep, MushiProgramRpc, getCurrentDateS
 const log = console.log;
 describe("mushi_program_getStats", () => {
   // Configure the client to use the local cluster.
+  // console.log("anchor.AnchorProvider.env()", anchor.AnchorProvider.env());
   anchor.setProvider(anchor.AnchorProvider.env());
   const provider = anchor.AnchorProvider.env();
   const connection = provider.connection;
@@ -17,7 +18,6 @@ describe("mushi_program_getStats", () => {
   let mainStateInfo: MainStateInfo | null = null;
   let globalInfo: GlobalStateInfo | null = null;
   let userLoanInfo: UserLoanInfo | null = null;
-  
   const connectivity = new MushiProgramRpc({
     rpc,
     wallet: provider.wallet,
@@ -29,6 +29,8 @@ describe("mushi_program_getStats", () => {
   const solAmount = 0.1; // Amount of SOL to buy tokens with
 
   it("Get initial state info", async () => {
+  console.log("balance", await provider.connection.getBalance(provider.publicKey));
+
     mainStateInfo = await connectivity.getMainStateInfo();
     if (!mainStateInfo) throw "Failed to get main state info";
     log({ mainStateInfo });

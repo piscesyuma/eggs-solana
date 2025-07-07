@@ -15,11 +15,12 @@ url = "https://api.apr.dev"
 [provider]
 #cluster = "Devnet"
 #cluster = "https://solana-devnet.g.alchemy.com/v2/RriT8QaP5dWpHS1DH-2Vr5UTm3-xN_Lm"
-cluster = "https://devnet.helius-rpc.com/?api-key=740627da-3f16-4e0e-9ef2-27ad1d79ea54"
+#cluster = "https://devnet.helius-rpc.com/?api-key=740627da-3f16-4e0e-9ef2-27ad1d79ea54"
 #cluster = "https://solana-devnet.drpc.org"
 #cluster = "https://endpoints.omniatech.io/v1/sol/devnet/public"
 #cluster = "https://devnet.helius-rpc.com/?api-key=b2a1042e-4c63-4c37-9241-d02b4e5ee0fa"
 #cluster = "https://rpc.ankr.com/solana_devnet/3cd79961b0f2d441be4717faeafc0fca9816cb0e0d6c357fb6b8f25dfd42736a"
+cluster = "https://testnet.dev2.eclipsenetwork.xyz"
 wallet = "/root/.config/solana/id.json"
 
 [scripts]

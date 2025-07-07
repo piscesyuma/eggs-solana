@@ -10,6 +10,7 @@ pub struct UpdateMainStateInput {
     sell_fee: Option<u64>,
     buy_fee: Option<u64>,
     buy_fee_leverage: Option<u64>,
+    quote_token: Option<Pubkey>,
     stake_token: Option<Pubkey>,
     stake_vault_program: Option<Pubkey>,
     stake_enabled: Option<bool>,
@@ -36,6 +37,12 @@ pub fn update_main_state(
         }
     }
     
+    // Only update quote_token if provided and different from current value
+    if let Some(quote_token) = input.quote_token {
+        if quote_token != state.quote_token {
+            state.quote_token = quote_token;
+        }
+    }
     // Only update stake_token if provided and different from current value
     if let Some(stake_token) = input.stake_token {
         if stake_token != state.stake_token {

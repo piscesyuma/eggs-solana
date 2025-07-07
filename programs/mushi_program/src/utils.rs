@@ -182,6 +182,8 @@ pub fn liquidate<'info>(
                 collateral,
                 Some(&[&[VAULT_SEED, &[vault_owner_bump]]]),
             )?;
+
+            global_state.token_supply -= collateral;
         }
         
         if borrowed > 0 {

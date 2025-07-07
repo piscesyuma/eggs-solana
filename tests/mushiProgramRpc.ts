@@ -25,9 +25,8 @@ export type Result<T, E = string> =
   | { isPass: true; info: T }
   | { isPass: false; info: E };
 export type SendTxResult = Result<{ txSignature: string }, string>;
-export const TOKEN_DECIMALS_HELPER = 1_000_000_000; // 9 decimals
-export const SOL_DECIMALS_HELPER = 1_000_000_000; // 9 decimals
-export const ECLIPSE_DECIMALS_HELPER = 1_000_000_000;
+export const TOKEN_DECIMALS_HELPER = 1_000_000; // 6 decimals
+export const ECLIPSE_DECIMALS_HELPER = 1_000_000; // 6 decimals
 
 const SECONDS_IN_A_DAY = 86400;
 const associatedTokenProgram = ASSOCIATED_TOKEN_PROGRAM_ID;

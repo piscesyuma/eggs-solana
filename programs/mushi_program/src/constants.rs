@@ -1,8 +1,8 @@
 pub const VAULT_SEED: &'static [u8] = b"vault";
 
 pub const SECONDS_IN_A_DAY: i64 = 60 * 60 * 24;
-pub const LAMPORTS_PER_ECLIPSE: u64 = 1_000_000_000;
-const TOKEN_DEICMALS_HELPER: u64 = 1_000_000_000; // 9 decimals
+pub const LAMPORTS_PER_ECLIPSE: u64 = 1_000_000;
+const TOKEN_DEICMALS_HELPER: u64 = 1_000_000; // 6 decimals
 pub const MIN_INITIALIZE_TOKEN_AMOUNT: u64 = 1 * LAMPORTS_PER_ECLIPSE;
 pub const INITIAL_BURN_TOKEN_AMOUNT: u64 = 10_000 * TOKEN_DEICMALS_HELPER;
 

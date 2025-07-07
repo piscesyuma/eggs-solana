@@ -102,7 +102,7 @@ describe("mushi_program", () => {
       eclipseTokenMint,
       user1Ata,
       payer.publicKey,
-      10000000000000, // 10000 tokens
+      10000000000, // 10000 tokens
       undefined,
       undefined,
       TOKEN_2022_PROGRAM_ID

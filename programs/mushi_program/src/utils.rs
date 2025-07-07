@@ -227,14 +227,14 @@ pub fn get_date_from_timestamp(timestamp: i64) -> i64 {
 pub fn get_interest_fee(amount: u64, number_of_days: u64) -> u64 {
     // Daily interest rate of 3.9% (0.039) plus base fee of 0.1% (0.001)
     // Using 1e9 as precision factor since we're working with u64 instead of u256
-    let daily_rate = 39_000_000; // 0.039 * 1e9
-    let base_fee = 1_000_000; // 0.001 * 1e9
+    let daily_rate = 39_000; // 0.039 * 1e6
+    let base_fee = 1_000; // 0.001 * 1e6
 
     // Calculate total interest rate: (daily_rate * days / 365) + base_fee
     let total_interest = ((daily_rate as u128 * number_of_days as u128) / 365) + base_fee as u128;
 
     // Calculate final fee: (amount * total_interest) / 1e9
-    ((amount as u128 * total_interest) / 1_000_000_000) as u64
+    ((amount as u128 * total_interest) / 1_000_000) as u64
 }
 
 /// Converts a Unix timestamp to a date string in YYYY-MM-DD format.

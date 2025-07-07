@@ -168,7 +168,7 @@ pub struct AStart<'info> {
         init,
         payer = admin,
         signer,
-        mint::decimals = 9,
+        mint::decimals = 6,
         mint::authority = main_state,
         mint::freeze_authority=main_state,
         mint::token_program = base_token_program,

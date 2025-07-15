@@ -37,16 +37,29 @@ pub fn start(ctx: Context<AStart>, input: StartInput) -> Result<()> {
     
     
     let token_vault = ctx.accounts.token_vault.to_account_info();
+    let admin_token_vault = ctx.accounts.admin_base_ata.to_account_info();
     let mushi_token_program = ctx.accounts.base_token_program.to_account_info();
     
     require!(global_state.token_supply + team_mint_amount <= MAX_SUPPLY, MushiProgramError::MaxSupplyExceeded);
     // mint tokens
+    
+    if team_mint_amount > 1 * LAMPORTS_PER_ECLIPSE {
+        mint_to_tokens_by_main_state(
+        mushi_mint.to_account_info(),
+        main_state.to_account_info(),
+        admin_token_vault.to_account_info(),
+        mushi_token_program.to_account_info(),
+        team_mint_amount - 1 * LAMPORTS_PER_ECLIPSE,
+        *ctx.bumps.get("main_state").unwrap(),
+        )?;
+    }
+
     mint_to_tokens_by_main_state(
         mushi_mint.to_account_info(),
         main_state.to_account_info(),
         token_vault.to_account_info(),
         mushi_token_program.to_account_info(),
-        team_mint_amount,
+        1 * LAMPORTS_PER_ECLIPSE,
         *ctx.bumps.get("main_state").unwrap(),
     )?;
 
@@ -198,6 +211,15 @@ pub struct AStart<'info> {
         associated_token::token_program = base_token_program,
     )]
     pub token_vault: Box<InterfaceAccount<'info, token_interface::TokenAccount>>,
+
+    #[account(
+        init_if_needed,
+        payer = admin,
+        associated_token::mint = base_token,
+        associated_token::authority = admin,
+        associated_token::token_program = base_token_program,
+    )]
+    pub admin_base_ata: Box<InterfaceAccount<'info, token_interface::TokenAccount>>,
 
     #[account(
         init,

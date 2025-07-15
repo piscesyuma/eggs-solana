@@ -364,6 +364,14 @@ export class MushiProgramRpc {
         true,
         baseTokenProgram
       );
+      
+      const tokenAdminAta = getAssociatedTokenAddressSync(
+        token,
+        admin,
+        true,
+        baseTokenProgram
+      );
+
       const tokenMetadataAccount = web3.PublicKey.findProgramAddressSync(
         [Buffer.from("metadata"), mplProgram.toBuffer(), token.toBuffer()],
         mplProgram
@@ -404,6 +412,7 @@ export class MushiProgramRpc {
           mainState: this.mainState,
           globalState: this.globalState,
           tokenVault: tokenVault,
+          adminBaseAta: tokenAdminAta,
           tokenVaultOwner: this.vaultOwner,
           associatedTokenProgram,
           mplProgram,
